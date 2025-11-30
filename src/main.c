@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "block_centered_text.h"
 #include "clues.h"
 #include "raylib.h"
 
@@ -19,10 +20,10 @@ int main(void)
     SetTargetFPS(60);
 
     int min_x, max_x, min_y, max_y;
-    min_x = 0;
-    max_x = texture_width;
-    min_y = 0;
-    max_y = texture_height;
+    min_x = -300;
+    max_x = 1000;
+    min_y = -300;
+    max_y = 700;
 
     Camera2D camera = {0};
     camera.zoom = 1.0f;
@@ -30,6 +31,10 @@ int main(void)
     RenderTexture2D target = LoadRenderTexture(texture_width, texture_height);
     int selected_i = -1;
     selected_i = 0;
+
+    Block_Centered_Text title;
+    block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE,
+                             texture_width, 5, BLACK);
 
     while (!WindowShouldClose())
     {
@@ -40,11 +45,11 @@ int main(void)
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
             {
                 const Vector2 mouse_delta = GetMouseDelta();
-                const float new_x = camera.target.x - mouse_delta.x;
-                const float new_y = camera.target.y - mouse_delta.y;
+                const float new_x = camera.offset.x + mouse_delta.x;
+                const float new_y = camera.offset.y + mouse_delta.y;
 
-                camera.target.x = MAX(MIN(new_x, max_x), min_x);
-                camera.target.y = MAX(MIN(new_y, max_y), min_y);
+                camera.offset.x = MAX(MIN(new_x, max_x), min_x);
+                camera.offset.y = MAX(MIN(new_y, max_y), min_y);
 
                 printf("%f, %f\n", new_y, camera.target.y);
             }
@@ -70,6 +75,8 @@ int main(void)
             DrawText(words[0].word, 190, 200, 20, WHITE);
 
             EndMode2D();
+
+            block_centered_text_render(&title);
             EndTextureMode();
         }
 
