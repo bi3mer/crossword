@@ -1,13 +1,17 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+    // create the clue dataset
+    // ...
+
+    // Create the build
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const raylib_dep = b.dependency("raylib", .{ .target = target, .optimize = optimize });
 
     const exe = b.addExecutable(.{
-        .name = "game-name-goes-here-please-update-it",
+        .name = "Crossword",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
