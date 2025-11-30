@@ -1,3 +1,6 @@
+#include <string.h>
+
+#include "clues.h"
 #include "raylib.h"
 
 int main(void)
@@ -13,7 +16,7 @@ int main(void)
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        DrawText("TEXT HERE", 190, 200, 20, BLACK);
+        DrawText(words[0].word, 190, 200, 20, BLACK);
 
         EndDrawing();
     }
