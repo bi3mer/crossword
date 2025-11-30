@@ -1,0 +1,3 @@
+clues.csv was generated from clue instruct (https://huggingface.co/datasets/azugarini/clue-instruct). 
+
+The license in this repo does not apply to clues.csv. The license clue-instruct is under, as of writing this, is "Attribution-NonCommercial 4.0 International". 
