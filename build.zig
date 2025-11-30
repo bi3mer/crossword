@@ -1,5 +1,14 @@
 const std = @import("std");
 
+const Entry = struct {
+    word: []const u8,
+    category: []const u8,
+    clue1: []const u8,
+    clue2: []const u8,
+    clue3: []const u8,
+    surprisal: f64,
+};
+
 pub fn build(b: *std.Build) void {
     // create the clue dataset
     const header_path = "src" ++ std.fs.path.sep_str ++ "clues.h";
@@ -11,6 +20,61 @@ pub fn build(b: *std.Build) void {
         const word_path = "data" ++ std.fs.path.sep_str ++ "clues.csv";
         const word_file = std.fs.cwd().readFileAlloc(allocator, word_path, 10 * 1024 * 1024) catch @panic("failed to create word file");
 
+        var entries: std.ArrayListUnmanaged(Entry) = .{};
+        defer entries.deinit(allocator);
+
+        var line_iter = std.mem.splitScalar(u8, word_file, '\n');
+        while (line_iter.next()) |line| {
+            if (line.len == 0) continue;
+
+            var fields: [6][]const u8 = .{ "", "", "", "", "", "" };
+            var field_idx: usize = 0;
+            var i: usize = 0;
+            var field_start: usize = 0;
+            var in_quotes = false;
+
+            while (i < line.len and field_idx < 6) : (i += 1) {
+                const c = line[i];
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ',' and !in_quotes) {
+                    var field = line[field_start..i];
+                    if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') {
+                        field = field[1 .. field.len - 1];
+                    }
+                    fields[field_idx] = field;
+                    field_idx += 1;
+                    field_start = i + 1;
+                }
+            }
+            if (field_idx < 6) {
+                var field = line[field_start..];
+                if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') {
+                    field = field[1 .. field.len - 1];
+                }
+                fields[field_idx] = field;
+            }
+
+            const surprisal = -@log(std.fmt.parseFloat(f64, fields[1]) catch 0.0);
+
+            entries.append(allocator, .{
+                .word = fields[0],
+                .category = fields[2],
+                .clue1 = fields[3],
+                .clue2 = fields[4],
+                .clue3 = fields[5],
+                .surprisal = surprisal,
+            }) catch @panic("append failed");
+        }
+
+        // Sort by surprisal (lowest to highest)
+        std.mem.sort(Entry, entries.items, {}, struct {
+            fn lessThan(_: void, lhs: Entry, rhs: Entry) bool {
+                return lhs.surprisal < rhs.surprisal;
+            }
+        }.lessThan);
+
+        // Write header file
         var header_file = std.fs.cwd().createFile(header_path, .{}) catch @panic("failed to create header file");
 
         header_file.writeAll(
@@ -32,59 +96,17 @@ pub fn build(b: *std.Build) void {
             \\
         ) catch @panic("write failed");
 
-        var line_iter = std.mem.splitScalar(u8, word_file, '\n');
-        while (line_iter.next()) |line| {
-            if (line.len == 0) continue;
-
-            var fields: [6][]const u8 = .{ "", "", "", "", "", "" };
-            var field_idx: usize = 0;
-            var i: usize = 0;
-            var field_start: usize = 0;
-            var in_quotes = false;
-
-            while (i < line.len and field_idx < 6) : (i += 1) {
-                const c = line[i];
-                if (c == '"') {
-                    in_quotes = !in_quotes;
-                } else if (c == ',' and !in_quotes) {
-                    var field = line[field_start..i];
-                    // Strip quotes if present
-                    if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') {
-                        field = field[1 .. field.len - 1];
-                    }
-                    fields[field_idx] = field;
-                    field_idx += 1;
-                    field_start = i + 1;
-                }
-            }
-            // Last field
-            if (field_idx < 6) {
-                var field = line[field_start..];
-                if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') {
-                    field = field[1 .. field.len - 1];
-                }
-                fields[field_idx] = field;
-            }
-
-            const word = fields[0];
-            const surprisal_str = fields[1];
-            const category = fields[2];
-            const clue1 = fields[3];
-            const clue2 = fields[4];
-            const clue3 = fields[5];
-
-            const surprisal = -@log(std.fmt.parseFloat(f64, surprisal_str) catch 0.0);
-
+        for (entries.items) |e| {
             var buf: [2048]u8 = undefined;
             const formatted = std.fmt.bufPrint(&buf,
                 \\    {{"{s}", {d}, "{s}", {{"{s}", "{s}", "{s}"}}, {{{d}, {d}, {d}}}, {d:.6}}},
                 \\
             , .{
-                word,      word.len,
-                category,  clue1,
-                clue2,     clue3,
-                clue1.len, clue2.len,
-                clue3.len, surprisal,
+                e.word,      e.word.len,
+                e.category,  e.clue1,
+                e.clue2,     e.clue3,
+                e.clue1.len, e.clue2.len,
+                e.clue3.len, e.surprisal,
             }) catch @panic("format failed");
 
             header_file.writeAll(formatted) catch @panic("write failed");
