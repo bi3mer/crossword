@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
                 fields[field_idx] = field;
             }
 
-            const surprisal = -@log(std.fmt.parseFloat(f64, fields[1]) catch 0.0);
+            const surprisal = -@log(std.fmt.parseFloat(f64, fields[1]) catch @panic("unable to calculate surprisal"));
 
             entries.append(allocator, .{
                 .word = fields[0],
