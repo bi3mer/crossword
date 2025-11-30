@@ -20,9 +20,9 @@ int main(void)
 
         // render to texture
         BeginTextureMode(target);
-        ClearBackground(RAYWHITE);
+        ClearBackground(BLACK);
 
-        DrawText(words[0].word, 190, 200, 20, BLACK);
+        DrawText(words[0].word, 190, 200, 20, WHITE);
 
         EndTextureMode();
 
