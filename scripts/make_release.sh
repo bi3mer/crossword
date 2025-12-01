@@ -33,5 +33,5 @@ mv game.html web-build
 mv game.js web-build
 mv game.wasm web-build
 
-echo "Done\n"
+echo "Done"
 echo

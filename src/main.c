@@ -50,8 +50,6 @@ int main(void)
 
                 camera.offset.x = MAX(MIN(new_x, max_x), min_x);
                 camera.offset.y = MAX(MIN(new_y, max_y), min_y);
-
-                printf("%f, %f\n", new_y, camera.target.y);
             }
         }
 
