@@ -3,12 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "block_centered_text.h"
-#include "clues.h"
 #include "raylib.h"
 
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#include "block_centered_text.h"
+#include "clues.h"
+#include "common.h"
 
 int main(void)
 {
