@@ -3,11 +3,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "dynamic_array.h"
 #include "raylib.h"
 
 #include "block_centered_text.h"
 #include "clues.h"
 #include "common.h"
+
+///////////////////////////////////////////////////////////////////////////////
+// Structures for defining the crossword grid that expands as the player
+// plays the game.
+typedef struct
+{
+    i16 x, y;
+    char user_letter, correct_letter;
+    bool locked;
+} Cell;
+
+typedef struct
+{
+    Cell *cells;
+    i16 min_x, max_x, min_y, max_y;
+} Crossword;
+
+///////////////////////////////////////////////////////////////////////////////
+// Constants for the puzzle
+const i32 cell_width = 64;
+const i32 cell_height = 64;
 
 int main(void)
 {
@@ -17,6 +39,9 @@ int main(void)
     InitWindow(texture_width, texture_height, "Crossword");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
+
+    Crossword crossword = {0};
+    crossword.cells = da_init(sizeof(*crossword.cells), 256);
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -91,6 +116,7 @@ int main(void)
         }
     }
 
+    da_cleanup(crossword.cells);
     UnloadRenderTexture(target);
     CloseWindow();
 
