@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,9 +29,10 @@ typedef struct
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants for the puzzle
-const i32 cell_width = 64;
-const i32 cell_height = 64;
+const i32 cell_width = 48;
+const i32 cell_height = 48;
 
+///////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
     const int texture_width = 1080;
@@ -42,6 +44,20 @@ int main(void)
 
     Crossword crossword = {0};
     crossword.cells = da_init(sizeof(*crossword.cells), 256);
+
+    Cell *c = da_append((void **)&crossword.cells);
+    c->x = 0;
+    c->y = 0;
+    c->user_letter = ' ';
+    c->correct_letter = 'a';
+    c->locked = false;
+
+    c = da_append((void **)&crossword.cells);
+    c->x = 10;
+    c->y = 10;
+    c->user_letter = 'c';
+    c->correct_letter = 'b';
+    c->locked = false;
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -94,7 +110,21 @@ int main(void)
             BeginMode2D(camera);
             ClearBackground(BLACK);
 
-            DrawText(words[0].word, 190, 200, 20, WHITE);
+            // DrawText(words[0].word, 190, 200, 20, WHITE);
+            const size_t num_cells = da_length(crossword.cells);
+            for (size_t i = 0; i < num_cells; ++i)
+            {
+                c = crossword.cells + i;
+                DrawRectangle(c->x * cell_width, c->y * cell_height, cell_width,
+                              cell_height, WHITE);
+                if (c->user_letter != ' ')
+                {
+                    char text[2] = {c->user_letter, '\0'};
+                    int font_size = 40;
+                    DrawText(text, c->x * cell_width + 13,
+                             c->y * cell_height + 5, font_size, BLACK);
+                }
+            }
 
             EndMode2D();
 
