@@ -10,35 +10,35 @@
 #include "block_centered_text.h"
 #include "clues.h"
 #include "common.h"
-#include "dynamic_array.h"
+
+///////////////////////////////////////////////////////////////////////////////
+// Constants for the puzzle
+ADJUST_GLOBAL_CONST_INT(g_cell_width, 48);
+ADJUST_GLOBAL_CONST_INT(g_cell_height, 48);
+
+ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
+ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
+
+#define CW_DIM 50
 
 ///////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player
 // plays the game.
 typedef struct Cell
 {
-    i16 x, y;
-    char user_letter, correct_letter;
-    bool locked, selected;
-    struct Cell *previous; // TODO: used while the user is backspacing
-    struct Cell *next; // TODO: used while the user is typing to iterate forward
+    char user_letter;
+    char correct_letter;
+    bool locked;
+    bool last_char_in_word;
 } Cell;
 
 typedef struct
 {
-    Cell *cells;
-    Cell *word_start_cells[50];
+    Cell cells[CW_DIM][CW_DIM];
+    Cell *word_start_cells[CW_DIM];
     size_t num_words;
     i16 min_x, max_x, min_y, max_y;
 } Crossword;
-
-///////////////////////////////////////////////////////////////////////////////
-// Constants for the puzzle
-ADJUST_GLOBAL_CONST_FLOAT(g_cell_width, 48);
-ADJUST_GLOBAL_CONST_FLOAT(g_cell_height, 48);
-
-ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
-ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 
 ///////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -51,25 +51,25 @@ int main(void)
     SetTargetFPS(60);
 
     Crossword crossword = {0};
-    crossword.cells = da_init(sizeof(*crossword.cells), 256);
     crossword.num_words = 0;
-
     {
         const Word *word = words;
+        Cell *c;
         i16 x = 0, y = 0;
         for (size_t i = 0; i < word->word_length; ++i)
         {
-            // struct Cell *previous;
-            // backspacing struct Cell *next;
-            Cell *c = da_append((void **)&crossword.cells);
-            c->x = x;
-            c->y = y;
+            c = &crossword.cells[y][x];
             c->user_letter = ' ';
             c->correct_letter = word->word[i];
             c->locked = false;
-            c->selected = false;
 
             ++x;
+
+            // char user_letter;
+            // char correct_letter;
+            // bool locked;
+            // bool last_char_in_word;
+            // i16 x, y;
         }
     }
 
@@ -95,8 +95,8 @@ int main(void)
     adjust_init();
     ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
 
-    adjust_register_global_float(g_cell_width);
-    adjust_register_global_float(g_cell_height);
+    adjust_register_global_int(g_cell_width);
+    adjust_register_global_int(g_cell_height);
     adjust_register_global_float(g_min_zoom);
     adjust_register_global_float(g_max_zoom);
 
@@ -127,30 +127,12 @@ int main(void)
                 const Vector2 mouse_position =
                     GetScreenToWorld2D(GetMousePosition(), camera);
 
-                const size_t num_cells = da_length(crossword.cells);
-                for (size_t i = 0; i < num_cells; ++i)
-                {
-                    Cell *c = crossword.cells + i;
-                    if (c == selected_cell)
-                        continue;
+                const int cell_x = (int)(mouse_position.x / g_cell_width);
+                const int cell_y = (int)(mouse_position.y / g_cell_width);
 
-                    const float x = c->x * g_cell_width;
-                    const float y = c->y * g_cell_height;
-
-                    if (mouse_position.x >= x &&
-                        mouse_position.x <= x + g_cell_width &&
-                        mouse_position.y >= y &&
-                        mouse_position.y <= y + g_cell_height)
-                    {
-                        c->selected = true;
-
-                        if (selected_cell)
-                            selected_cell->selected = false;
-
-                        selected_cell = c;
-                        break;
-                    }
-                }
+                selected_cell = &crossword.cells[cell_y][cell_x];
+                if (selected_cell->correct_letter == 0)
+                    selected_cell = NULL;
             }
 
             // zooming in and out with mouse wheel
@@ -182,23 +164,30 @@ int main(void)
         // render state to texture
         {
             BeginTextureMode(target);
-            BeginMode2D(camera);
             ClearBackground(BLACK);
 
-            // DrawText(words[0].word, 190, 200, 20, WHITE);
-            const size_t num_cells = da_length(crossword.cells);
-            for (size_t i = 0; i < num_cells; ++i)
+            BeginMode2D(camera);
+
+            for (int y = 0; y < CW_DIM; ++y)
             {
-                const Cell *c = crossword.cells + i;
-                DrawRectangle(c->x * g_cell_width, c->y * g_cell_height,
-                              g_cell_width - 1, g_cell_height - 1,
-                              c->selected ? YELLOW : WHITE);
-                if (c->user_letter != ' ')
+                for (int x = 0; x < CW_DIM; ++x)
                 {
-                    char text[2] = {c->user_letter, '\0'};
-                    int font_size = 40;
-                    DrawText(text, c->x * g_cell_width + 13,
-                             c->y * g_cell_height + 5, font_size, BLACK);
+                    const Cell *c = &crossword.cells[y][x];
+
+                    if (c->correct_letter != 0)
+                    {
+                        DrawRectangle(g_cell_width * x, g_cell_height * y,
+                                      g_cell_width - 1, g_cell_height - 1,
+                                      c == selected_cell ? YELLOW : WHITE);
+
+                        if (c->user_letter != 0)
+                        {
+                            char text[2] = {c->user_letter, '\0'};
+                            int font_size = 40;
+                            DrawText(text, x * g_cell_width + 13,
+                                     y * g_cell_height + 5, font_size, BLACK);
+                        }
+                    }
                 }
             }
 
@@ -224,7 +213,6 @@ int main(void)
     }
 
     adjust_cleanup();
-    da_cleanup(crossword.cells);
     UnloadRenderTexture(target);
     CloseWindow();
 
