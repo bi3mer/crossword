@@ -27,6 +27,8 @@ typedef struct Cell
 typedef struct
 {
     Cell *cells;
+    Cell *word_start_cells[50];
+    size_t num_words;
     i16 min_x, max_x, min_y, max_y;
 } Crossword;
 
@@ -50,21 +52,28 @@ int main(void)
 
     Crossword crossword = {0};
     crossword.cells = da_init(sizeof(*crossword.cells), 256);
+    crossword.num_words = 0;
+
+    {
+        const Word *word = words;
+        i16 x = 0, y = 0;
+        for (size_t i = 0; i < word->word_length; ++i)
+        {
+            // struct Cell *previous;
+            // backspacing struct Cell *next;
+            Cell *c = da_append((void **)&crossword.cells);
+            c->x = x;
+            c->y = y;
+            c->user_letter = word->word[i];
+            c->correct_letter = word->word[i];
+            c->locked = false;
+            c->selected = false;
+
+            ++x;
+        }
+    }
 
     Cell *selected_cell = NULL;
-    Cell *c = da_append((void **)&crossword.cells);
-    c->x = 0;
-    c->y = 0;
-    c->user_letter = ' ';
-    c->correct_letter = 'a';
-    c->locked = false;
-
-    c = da_append((void **)&crossword.cells);
-    c->x = 10;
-    c->y = 10;
-    c->user_letter = 'c';
-    c->correct_letter = 'b';
-    c->locked = false;
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -123,7 +132,7 @@ int main(void)
                 for (size_t i = 0; i < num_cells; ++i)
                 {
                     // TODO: not handling zoom
-                    c = crossword.cells + i;
+                    Cell *c = crossword.cells + i;
                     const float x = c->x * g_cell_width;
                     const float y = c->y * g_cell_height;
 
@@ -169,9 +178,9 @@ int main(void)
             const size_t num_cells = da_length(crossword.cells);
             for (size_t i = 0; i < num_cells; ++i)
             {
-                c = crossword.cells + i;
+                const Cell *c = crossword.cells + i;
                 DrawRectangle(c->x * g_cell_width, c->y * g_cell_height,
-                              g_cell_width, g_cell_height,
+                              g_cell_width - 1, g_cell_height - 1,
                               c->selected ? YELLOW : WHITE);
                 if (c->user_letter != ' ')
                 {
