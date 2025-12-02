@@ -30,8 +30,11 @@ typedef struct
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants for the puzzle
-const i32 cell_width = 48;
-const i32 cell_height = 48;
+ADJUST_GLOBAL_CONST_FLOAT(g_cell_width, 48);
+ADJUST_GLOBAL_CONST_FLOAT(g_cell_height, 48);
+
+ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
+ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 
 ///////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -80,6 +83,11 @@ int main(void)
     adjust_init();
     ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
 
+    adjust_register_global_float(g_cell_width);
+    adjust_register_global_float(g_cell_height);
+    adjust_register_global_float(g_min_zoom);
+    adjust_register_global_float(g_max_zoom);
+
     while (!WindowShouldClose())
     {
         adjust_update();
@@ -101,7 +109,7 @@ int main(void)
 
             // zooming in and out with mouse wheel
             camera.zoom -= GetMouseWheelMove() * mouse_scroll_mitigator;
-            camera.zoom = MAX(MIN(camera.zoom, 1.1f), 0.5f);
+            camera.zoom = MAX(MIN(camera.zoom, g_max_zoom), g_min_zoom);
         }
 
         // handle keyboard input
@@ -126,14 +134,14 @@ int main(void)
             for (size_t i = 0; i < num_cells; ++i)
             {
                 c = crossword.cells + i;
-                DrawRectangle(c->x * cell_width, c->y * cell_height, cell_width,
-                              cell_height, WHITE);
+                DrawRectangle(c->x * g_cell_width, c->y * g_cell_height,
+                              g_cell_width, g_cell_height, WHITE);
                 if (c->user_letter != ' ')
                 {
                     char text[2] = {c->user_letter, '\0'};
                     int font_size = 40;
-                    DrawText(text, c->x * cell_width + 13,
-                             c->y * cell_height + 5, font_size, BLACK);
+                    DrawText(text, c->x * g_cell_width + 13,
+                             c->y * g_cell_height + 5, font_size, BLACK);
                 }
             }
 
