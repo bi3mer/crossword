@@ -124,13 +124,16 @@ int main(void)
             // check for a click on a cell
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                Vector2 mouse_position =
+                const Vector2 mouse_position =
                     GetScreenToWorld2D(GetMousePosition(), camera);
+
                 const size_t num_cells = da_length(crossword.cells);
                 for (size_t i = 0; i < num_cells; ++i)
                 {
-                    // TODO: not handling zoom
                     Cell *c = crossword.cells + i;
+                    if (c == selected_cell)
+                        continue;
+
                     const float x = c->x * g_cell_width;
                     const float y = c->y * g_cell_height;
 
