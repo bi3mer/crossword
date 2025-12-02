@@ -19,7 +19,7 @@ typedef struct
 {
     i16 x, y;
     char user_letter, correct_letter;
-    bool locked;
+    bool locked, selected;
 } Cell;
 
 typedef struct
@@ -49,6 +49,7 @@ int main(void)
     Crossword crossword = {0};
     crossword.cells = da_init(sizeof(*crossword.cells), 256);
 
+    Cell *selected_cell = NULL;
     Cell *c = da_append((void **)&crossword.cells);
     c->x = 0;
     c->y = 0;
@@ -80,6 +81,8 @@ int main(void)
     block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE,
                              texture_width, 5, BLACK);
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Set up adjustables
     adjust_init();
     ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
 
@@ -88,13 +91,15 @@ int main(void)
     adjust_register_global_float(g_min_zoom);
     adjust_register_global_float(g_max_zoom);
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Run the game
     while (!WindowShouldClose())
     {
         adjust_update();
 
         // handle mouse input
         {
-            // clicks
+            // click and drag to move the puzzle
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
                 IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
@@ -105,6 +110,34 @@ int main(void)
 
                 camera.offset.x = MAX(MIN(new_x, max_x), min_x);
                 camera.offset.y = MAX(MIN(new_y, max_y), min_y);
+            }
+
+            // check for a click on a cell
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            {
+                Vector2 mouse_position = GetMousePosition();
+                const size_t num_cells = da_length(crossword.cells);
+                for (size_t i = 0; i < num_cells; ++i)
+                {
+                    // TODO: not handling zoom
+                    c = crossword.cells + i;
+                    const float x = c->x * g_cell_width;
+                    const float y = c->y * g_cell_height;
+
+                    if (mouse_position.x >= x &&
+                        mouse_position.x <= x + g_cell_width &&
+                        mouse_position.y >= y &&
+                        mouse_position.y <= y + g_cell_height)
+                    {
+                        c->selected = true;
+
+                        if (selected_cell)
+                            selected_cell->selected = false;
+
+                        selected_cell = c;
+                        break;
+                    }
+                }
             }
 
             // zooming in and out with mouse wheel
@@ -135,7 +168,8 @@ int main(void)
             {
                 c = crossword.cells + i;
                 DrawRectangle(c->x * g_cell_width, c->y * g_cell_height,
-                              g_cell_width, g_cell_height, WHITE);
+                              g_cell_width, g_cell_height,
+                              c->selected ? YELLOW : WHITE);
                 if (c->user_letter != ' ')
                 {
                     char text[2] = {c->user_letter, '\0'};
@@ -156,6 +190,7 @@ int main(void)
             BeginDrawing();
             const int W = GetScreenWidth();
             const int H = GetScreenHeight();
+
             DrawTexturePro(target.texture,
                            (Rectangle){0, 0, (float)target.texture.width,
                                        (float)-target.texture.height},
