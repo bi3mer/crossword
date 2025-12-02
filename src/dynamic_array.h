@@ -1,17 +1,17 @@
-#ifndef _DA_
-#define _DA_
+#ifndef __DYNAMIC_ARRAY__
+#define __DYNAMIC_ARRAY__
 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> // memmove
 
-typedef struct _DA_Header
+typedef struct
 {
     size_t length;
     size_t capacity;
     size_t item_size;
-} _DA_Header;
+} __DA_Header;
 
 extern void *da_init(const size_t item_size, const size_t capacity);
 extern void da_cleanup(void *da);

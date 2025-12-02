@@ -4,12 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dynamic_array.h"
+#include "adjust.h"
 #include "raylib.h"
 
 #include "block_centered_text.h"
 #include "clues.h"
 #include "common.h"
+#include "dynamic_array.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player
@@ -76,10 +77,16 @@ int main(void)
     block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE,
                              texture_width, 5, BLACK);
 
+    adjust_init();
+    ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
+
     while (!WindowShouldClose())
     {
+        adjust_update();
+
         // handle mouse input
         {
+            // clicks
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
                 IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
@@ -91,6 +98,10 @@ int main(void)
                 camera.offset.x = MAX(MIN(new_x, max_x), min_x);
                 camera.offset.y = MAX(MIN(new_y, max_y), min_y);
             }
+
+            // zooming in and out with mouse wheel
+            camera.zoom -= GetMouseWheelMove() * mouse_scroll_mitigator;
+            camera.zoom = MAX(MIN(camera.zoom, 1.1f), 0.5f);
         }
 
         // handle keyboard input
@@ -146,6 +157,7 @@ int main(void)
         }
     }
 
+    adjust_cleanup();
     da_cleanup(crossword.cells);
     UnloadRenderTexture(target);
     CloseWindow();

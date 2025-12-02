@@ -8,8 +8,8 @@
 void *da_init(const size_t item_size, const size_t capacity)
 {
     void *ptr = 0;
-    _DA_Header *h =
-        (_DA_Header *)malloc(item_size * capacity + sizeof(_DA_Header));
+    __DA_Header *h =
+        (__DA_Header *)malloc(item_size * capacity + sizeof(__DA_Header));
 
     if (h)
     {
@@ -31,13 +31,13 @@ void da_cleanup(void *da)
 {
     if (da)
     {
-        free(((_DA_Header *)(da)-1));
+        free(((__DA_Header *)(da)-1));
     }
 }
 
 void da_ensure_capacity(void **da, const size_t capacity_increase)
 {
-    _DA_Header *h = ((_DA_Header *)(*da) - 1);
+    __DA_Header *h = ((__DA_Header *)(*da) - 1);
     if (h->length + capacity_increase > h->capacity)
     {
         size_t new_capacity = h->capacity * 2;
@@ -46,8 +46,8 @@ void da_ensure_capacity(void **da, const size_t capacity_increase)
             new_capacity *= 2;
         }
 
-        h = (_DA_Header *)realloc(h, h->item_size * new_capacity +
-                                         sizeof(_DA_Header));
+        h = (__DA_Header *)realloc(h, h->item_size * new_capacity +
+                                          sizeof(__DA_Header));
         if (!h)
         {
             fprintf(stderr, "Unable to resize dynamic array with realloc.\n");
@@ -62,7 +62,7 @@ void da_ensure_capacity(void **da, const size_t capacity_increase)
 void *da_append(void **da)
 {
     da_ensure_capacity(da, 1);
-    _DA_Header *h = ((_DA_Header *)(*da) - 1);
+    __DA_Header *h = ((__DA_Header *)(*da) - 1);
     char *bytes = (char *)(*da);
     void *new_element = bytes + (h->length * h->item_size);
     h->length++;
@@ -75,7 +75,7 @@ void *da_priority_insert(void **da, const float priority,
 {
     size_t i, insert_index;
     da_ensure_capacity(da, 1);
-    _DA_Header *h = ((_DA_Header *)(*da) - 1);
+    __DA_Header *h = ((__DA_Header *)(*da) - 1);
     char *bytes = (char *)(*da);
     insert_index = h->length;
     for (i = 0; i < h->length; ++i)
@@ -102,7 +102,7 @@ void da_pop_start(void *da)
     if (!da)
         return;
 
-    _DA_Header *h = ((_DA_Header *)da - 1);
+    __DA_Header *h = ((__DA_Header *)da - 1);
     if (h->length == 0)
         return;
 
@@ -121,7 +121,7 @@ void da_pop_end(void *da)
     if (!da)
         return;
 
-    _DA_Header *h = ((_DA_Header *)da - 1);
+    __DA_Header *h = ((__DA_Header *)da - 1);
     if (h->length > 0)
     {
         h->length--;
@@ -133,7 +133,7 @@ void da_reverse(void *da)
     if (!da)
         return;
 
-    const _DA_Header *h = (_DA_Header *)da - 1;
+    const __DA_Header *h = (__DA_Header *)da - 1;
     const size_t length = h->length;
     const size_t item_size = h->item_size;
     const size_t half_length = length / 2;
@@ -152,13 +152,13 @@ void da_reverse(void *da)
 
 size_t da_length(const void *da)
 {
-    return da ? ((const _DA_Header *)da - 1)->length : 0;
+    return da ? ((const __DA_Header *)da - 1)->length : 0;
 }
 
 void da_increment_length(void *da)
 {
     if (da)
     {
-        ((_DA_Header *)(da)-1)->length++;
+        ((__DA_Header *)(da)-1)->length++;
     }
 }
