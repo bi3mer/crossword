@@ -1,6 +1,8 @@
 #ifndef _COMMON_
 #define _COMMON_
 
+#include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -24,6 +26,14 @@ typedef double f64;
 ///////////////////////////////////////////////////////////////////////////////
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define IN_BETWEEN(min, a, max) ((min) <= (a) && (a) <= (max))
+
+///////////////////////////////////////////////////////////////////////////////
+// In Between
+///////////////////////////////////////////////////////////////////////////////
+static inline bool in_between_i32(i32 min, i32 b, i32 max)
+{
+    assert(min < max);
+    return min <= b && b <= max;
+}
 
 #endif

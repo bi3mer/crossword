@@ -132,8 +132,8 @@ int main(void)
                 const int cell_x = (int)(mouse_position.x / g_cell_width);
                 const int cell_y = (int)(mouse_position.y / g_cell_width);
 
-                if (IN_BETWEEN(0, cell_x, CW_DIM - 1) &&
-                    IN_BETWEEN(0, cell_y, CW_DIM - 1))
+                if (in_between_i32(0, cell_x, CW_DIM - 1) &&
+                    in_between_i32(0, cell_y, CW_DIM - 1))
                 {
                     selected_cell = &crossword.cells[cell_y][cell_x];
                     if (selected_cell->correct_letter == 0)
