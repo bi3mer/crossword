@@ -71,6 +71,8 @@ int main(void)
             // bool last_char_in_word;
             // i16 x, y;
         }
+
+        c->last_char_in_word = true;
     }
 
     Cell *selected_cell = NULL;
@@ -108,7 +110,7 @@ int main(void)
 
         // handle mouse input
         {
-            // click and drag to move the puzzle
+            // click and drag to move the camera around
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
                 IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
@@ -130,9 +132,17 @@ int main(void)
                 const int cell_x = (int)(mouse_position.x / g_cell_width);
                 const int cell_y = (int)(mouse_position.y / g_cell_width);
 
-                selected_cell = &crossword.cells[cell_y][cell_x];
-                if (selected_cell->correct_letter == 0)
+                if (IN_BETWEEN(0, cell_x, CW_DIM - 1) &&
+                    IN_BETWEEN(0, cell_y, CW_DIM - 1))
+                {
+                    selected_cell = &crossword.cells[cell_y][cell_x];
+                    if (selected_cell->correct_letter == 0)
+                        selected_cell = NULL;
+                }
+                else
+                {
                     selected_cell = NULL;
+                }
             }
 
             // zooming in and out with mouse wheel
