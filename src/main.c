@@ -64,7 +64,7 @@ int main(void)
             Cell *c = da_append((void **)&crossword.cells);
             c->x = x;
             c->y = y;
-            c->user_letter = word->word[i];
+            c->user_letter = ' ';
             c->correct_letter = word->word[i];
             c->locked = false;
             c->selected = false;
@@ -85,8 +85,6 @@ int main(void)
     camera.zoom = 1.0f;
 
     RenderTexture2D target = LoadRenderTexture(texture_width, texture_height);
-    int selected_i = -1;
-    selected_i = 0;
 
     Block_Centered_Text title;
     block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE,
@@ -159,12 +157,22 @@ int main(void)
 
         // handle keyboard input
         {
-            const Word *selected = selected_i < 0 ? NULL : &words[selected_i];
-            int key = GetKeyPressed();
-
-            while (selected != NULL && key != 0)
+            if (selected_cell != NULL && selected_cell->locked == false)
             {
-                key = GetKeyPressed();
+                int key = GetKeyPressed();
+                while (key != 0)
+                {
+                    if (isalpha(key))
+                    {
+                        selected_cell->user_letter = (char)toupper(key);
+                    }
+                    else if (key == KEY_BACKSPACE)
+                    {
+                        selected_cell->user_letter = ' ';
+                    }
+
+                    key = GetKeyPressed();
+                }
             }
         }
 
