@@ -15,11 +15,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player
 // plays the game.
-typedef struct
+typedef struct Cell
 {
     i16 x, y;
     char user_letter, correct_letter;
     bool locked, selected;
+    struct Cell *previous; // TODO: used while the user is backspacing
+    struct Cell *next; // TODO: used while the user is typing to iterate forward
 } Cell;
 
 typedef struct
@@ -115,7 +117,8 @@ int main(void)
             // check for a click on a cell
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                Vector2 mouse_position = GetMousePosition();
+                Vector2 mouse_position =
+                    GetScreenToWorld2D(GetMousePosition(), camera);
                 const size_t num_cells = da_length(crossword.cells);
                 for (size_t i = 0; i < num_cells; ++i)
                 {
