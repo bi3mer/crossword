@@ -21,6 +21,7 @@ ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
 ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 
 #define CW_DIM 50
+#define CW_MAX_ENTRIES 50
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player plays the game.
@@ -30,7 +31,7 @@ typedef struct
     bool complete;
     size_t word_length;
     i16 start_x, start_y;
-    bool is_vertical;
+    i16 dir_x, dir_y;
 } Crossword_Entry;
 
 typedef struct
@@ -45,12 +46,15 @@ typedef struct
 
 typedef struct
 {
-    Crossword_Entry entries[CW_DIM];
+    Crossword_Entry entries[CW_MAX_ENTRIES];
     i16 min_x, max_x, min_y, max_y;
     size_t num_entries;
     Cell cells[CW_DIM][CW_DIM];
     bool vertical_mode;
 } Crossword;
+
+static void cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
+static bool cw_place_word(Crossword *cw, const Word *w);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -67,32 +71,12 @@ int main(void)
 
     Crossword crossword = {0};
 
-    {
-        const Word *word = words + 4;
-        Crossword_Entry *e = crossword.entries + crossword.num_entries;
-        e->clue_str = word->clues[GetRandomValue(0, 2)];
-        e->word_length = word->word_length;
+    cw_place_word(&crossword, words + 3);
+    cw_place_word(&crossword, words + 10);
+    // cw_place_word(&crossword, words + 20);
 
-        Cell *c;
-        i16 x = 0, y = 0;
-        for (size_t i = 0; i < word->word_length; ++i)
-        {
-            c = &crossword.cells[y][x];
-            c->x = x;
-            c->y = y;
-            c->user_letter = ' ';
-            c->correct_letter = word->word[i];
-            c->locked = false;
-            c->horizontal_entry = e;
-            c->vertical_entry = NULL;
-
-            ++x;
-        }
-
-        ++crossword.num_entries;
-    }
-
-    Cell *selected_cell = *crossword.cells;
+    printf("%d, %d\n", crossword.entries->start_x, crossword.entries->start_y);
+    Cell *selected_cell = &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -102,6 +86,8 @@ int main(void)
 
     Camera2D camera = {0};
     camera.zoom = 1.0f;
+    camera.target.x = g_cell_width * CW_DIM / 2.f - 250;
+    camera.target.y = g_cell_height * CW_DIM / 2.f - 250;
 
     RenderTexture2D target = LoadRenderTexture(texture_width, texture_height);
 
@@ -189,7 +175,9 @@ int main(void)
                                 Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
                                 if (next_cell->correct_letter == 0)
                                 {
-                                    // check if word is correct
+                                    cw_validate_entry(&crossword, selected_cell->vertical_entry);
+                                    // TODO: do something if the word is valid
+                                    // (vertical_entry.complete)
                                 }
                                 else
                                 {
@@ -205,7 +193,10 @@ int main(void)
                                 Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
                                 if (next_cell->correct_letter == 0)
                                 {
-                                    // check if word is correct
+                                    cw_validate_entry(&crossword, selected_cell->horizontal_entry);
+                                    printf("Here: %i\n", selected_cell->horizontal_entry->complete);
+                                    // TODO: do something if the word is valid
+                                    // (horizontal_entry.complete)
                                 }
                                 else
                                 {
@@ -274,8 +265,10 @@ int main(void)
 
                     if (c->correct_letter != 0)
                     {
+                        const Color color =
+                            c->locked ? GRAY : (c == selected_cell ? YELLOW : WHITE);
                         DrawRectangle(g_cell_width * x, g_cell_height * y, g_cell_width - 1,
-                                      g_cell_height - 1, c == selected_cell ? YELLOW : WHITE);
+                                      g_cell_height - 1, color);
 
                         if (c->user_letter != 0)
                         {
@@ -325,4 +318,100 @@ int main(void)
     CloseWindow();
 
     return 0;
+}
+
+void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
+{
+    i16 x = ce->start_x;
+    i16 y = ce->start_y;
+    bool valid = true;
+
+    while (cw->cells[y][x].correct_letter != 0)
+    {
+        const Cell *c = &cw->cells[y][x];
+        if (c->user_letter != c->correct_letter)
+        {
+            valid = false;
+            break;
+        }
+
+        x += ce->dir_x;
+        y += ce->dir_y;
+    }
+
+    if (valid)
+    {
+        ce->complete = true;
+        x = ce->start_x;
+        y = ce->start_y;
+
+        while (cw->cells[y][x].correct_letter != 0)
+        {
+            cw->cells[y][x].locked = true;
+
+            x += ce->dir_x;
+            y += ce->dir_y;
+        }
+    }
+}
+
+bool cw_place_word(Crossword *cw, const Word *w)
+{
+    assert(cw->num_entries <= CW_MAX_ENTRIES);
+
+    bool valid_placement_found = false;
+    bool vertical = GetRandomValue(0, 1);
+    i16 x, y;
+    if (cw->num_entries == 0)
+    {
+        // if there are no entries, there is no point looking for an interesection, and instead
+        // we'll just place the word in the center of the puzzle
+        x = CW_DIM / 2;
+        y = CW_DIM / 2;
+        valid_placement_found = true;
+    }
+    else
+    {
+        const size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
+        for (size_t _i = 0; _i < cw->num_entries; ++_i)
+        {
+            const size_t i = (_i + offset) % cw->num_entries;
+            const Crossword_Entry *e = cw->entries + i;
+            i16 dir_x, dir_y;
+        }
+    }
+
+    if (!valid_placement_found)
+        return true; // unable to place word
+
+    // once we have
+    Crossword_Entry *e = cw->entries + cw->num_entries;
+    e->start_x = x;
+    e->start_y = y;
+    e->clue_str = w->clues[GetRandomValue(0, 2)];
+    e->word_length = w->word_length;
+
+    const i16 dir_x = !vertical;
+    const i16 dir_y = vertical;
+    e->dir_x = dir_x;
+    e->dir_y = dir_y;
+
+    Cell *c;
+    for (size_t i = 0; i < w->word_length; ++i)
+    {
+        c = &cw->cells[y][x];
+        c->x = x;
+        c->y = y;
+        c->user_letter = ' ';
+        c->correct_letter = toupper(w->word[i]);
+        c->locked = false;
+        c->horizontal_entry = e;
+        c->vertical_entry = NULL;
+
+        x += dir_x;
+        y += dir_y;
+    }
+
+    ++cw->num_entries;
+    return false;
 }
