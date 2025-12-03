@@ -29,11 +29,11 @@ typedef struct
     char *clue_str;
     bool complete;
     size_t word_length;
-    i16 dir_x, dir_y;
     i16 start_x, start_y;
+    bool is_vertical;
 } Crossword_Entry;
 
-typedef struct Cell
+typedef struct
 {
     i16 x, y;
     char user_letter;
@@ -72,8 +72,6 @@ int main(void)
         Crossword_Entry *e = crossword.entries + crossword.num_entries;
         e->clue_str = word->clues[GetRandomValue(0, 2)];
         e->word_length = word->word_length;
-        e->dir_x = 1;
-        e->dir_y = 0;
 
         Cell *c;
         i16 x = 0, y = 0;
@@ -196,6 +194,22 @@ int main(void)
                     else if (key == KEY_BACKSPACE)
                     {
                         selected_cell->user_letter = ' ';
+
+                        if (crossword.vertical_mode)
+                        {
+                        }
+                        else
+                        {
+                            const i16 next_x = selected_cell->x - 1;
+                            if (next_x >= 0)
+                            {
+                                Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
+                                if (next_cell->correct_letter != 0)
+                                {
+                                    selected_cell = next_cell;
+                                }
+                            }
+                        }
                     }
                 }
 
