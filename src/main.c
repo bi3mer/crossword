@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "adjust.h"
 #include "raylib.h"
@@ -39,8 +40,8 @@ typedef struct Cell
     char correct_letter;
     bool locked;
     bool last_char_in_word;
-    size_t horizontal_entry_index;
-    size_t vertical_entry_index;
+    Crossword_Entry *horizontal_entry;
+    Crossword_Entry *vertical_entry;
 } Cell;
 
 typedef struct
@@ -49,6 +50,7 @@ typedef struct
     i16 min_x, max_x, min_y, max_y;
     size_t num_entries;
     Cell cells[CW_DIM][CW_DIM];
+    bool vertical_mode;
 } Crossword;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,6 +62,7 @@ int main(void)
     InitWindow(texture_width, texture_height, "Crossword");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
+    SetRandomSeed(time(NULL));
 
     // TODO: only update on event?
 
@@ -68,7 +71,7 @@ int main(void)
     {
         const Word *word = words + 4;
         Crossword_Entry *e = crossword.entries + crossword.num_entries;
-        e->clue_str = word->clues[GetRandomValue(0, 3)];
+        e->clue_str = word->clues[GetRandomValue(0, 2)];
         e->word_length = word->word_length;
         e->dir_x = 1;
         e->dir_y = 0;
@@ -81,6 +84,8 @@ int main(void)
             c->user_letter = ' ';
             c->correct_letter = word->word[i];
             c->locked = false;
+            c->horizontal_entry = e;
+            c->vertical_entry = NULL;
 
             ++x;
         }
@@ -89,7 +94,7 @@ int main(void)
         ++crossword.num_entries;
     }
 
-    Cell *selected_cell = NULL;
+    Cell *selected_cell = *crossword.cells;
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -147,15 +152,10 @@ int main(void)
                 const int cell_y = (int)(mouse_position.y / g_cell_width);
 
                 if (in_between_i32(0, cell_x, CW_DIM - 1) &&
-                    in_between_i32(0, cell_y, CW_DIM - 1))
+                    in_between_i32(0, cell_y, CW_DIM - 1) &&
+                    crossword.cells[cell_y][cell_x].correct_letter != 0)
                 {
                     selected_cell = &crossword.cells[cell_y][cell_x];
-                    if (selected_cell->correct_letter == 0)
-                        selected_cell = NULL;
-                }
-                else
-                {
-                    selected_cell = NULL;
                 }
             }
 
@@ -169,7 +169,7 @@ int main(void)
             int key = GetKeyPressed();
             while (key != 0)
             {
-                if (selected_cell != NULL && selected_cell->locked == false)
+                if (selected_cell->locked == false)
                 {
                     if (isalpha(key))
                     {
@@ -202,6 +202,7 @@ int main(void)
 
             BeginMode2D(camera);
 
+            // render board
             for (int y = 0; y < CW_DIM; ++y)
             {
                 for (int x = 0; x < CW_DIM; ++x)
@@ -227,7 +228,18 @@ int main(void)
 
             EndMode2D();
 
+            // render title and clue
             block_centered_text_render(&title);
+
+            DrawRectangle(100, texture_height - 100, texture_width - 200, 100,
+                          WHITE);
+            DrawRectangleLinesEx(
+                (Rectangle){99, texture_height - 101, texture_width - 198, 106},
+                5, BLACK);
+
+            DrawText(selected_cell->horizontal_entry->clue_str, 110,
+                     texture_height - 90, 20, BLACK);
+
             EndTextureMode();
         }
 
