@@ -75,8 +75,8 @@ int main(void)
     cw_place_word(&crossword, words + 10);
     // cw_place_word(&crossword, words + 20);
 
-    printf("%d, %d\n", crossword.entries->start_x, crossword.entries->start_y);
     Cell *selected_cell = &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
+    crossword.vertical_mode = selected_cell->horizontal_entry == NULL;
 
     int min_x, max_x, min_y, max_y;
     min_x = -300;
@@ -405,8 +405,15 @@ bool cw_place_word(Crossword *cw, const Word *w)
         c->user_letter = ' ';
         c->correct_letter = toupper(w->word[i]);
         c->locked = false;
-        c->horizontal_entry = e;
-        c->vertical_entry = NULL;
+
+        if (vertical)
+        {
+            c->vertical_entry = e;
+        }
+        else
+        {
+            c->horizontal_entry = e;
+        }
 
         x += dir_x;
         y += dir_y;
