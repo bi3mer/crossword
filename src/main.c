@@ -183,6 +183,19 @@ int main(void)
 
                         if (crossword.vertical_mode)
                         {
+                            const i16 next_y = selected_cell->y + 1;
+                            if (next_y < CW_DIM)
+                            {
+                                Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
+                                if (next_cell->correct_letter == 0)
+                                {
+                                    // check if word is correct
+                                }
+                                else
+                                {
+                                    selected_cell = next_cell;
+                                }
+                            }
                         }
                         else
                         {
@@ -190,7 +203,6 @@ int main(void)
                             if (next_x < CW_DIM)
                             {
                                 Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
-
                                 if (next_cell->correct_letter == 0)
                                 {
                                     // check if word is correct
@@ -208,6 +220,15 @@ int main(void)
 
                         if (crossword.vertical_mode)
                         {
+                            const i16 next_y = selected_cell->y - 1;
+                            if (next_y >= 0)
+                            {
+                                Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
+                                if (next_cell->correct_letter != 0)
+                                {
+                                    selected_cell = next_cell;
+                                }
+                            }
                         }
                         else
                         {
