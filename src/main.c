@@ -12,7 +12,7 @@
 #include "clues.h"
 #include "common.h"
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Constants for the puzzle
 ADJUST_GLOBAL_CONST_INT(g_cell_width, 48);
 ADJUST_GLOBAL_CONST_INT(g_cell_height, 48);
@@ -22,9 +22,8 @@ ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 
 #define CW_DIM 50
 
-///////////////////////////////////////////////////////////////////////////////
-// Structures for defining the crossword grid that expands as the player
-// plays the game.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Structures for defining the crossword grid that expands as the player plays the game.
 typedef struct
 {
     char *clue_str;
@@ -36,10 +35,10 @@ typedef struct
 
 typedef struct Cell
 {
+    i16 x, y;
     char user_letter;
     char correct_letter;
     bool locked;
-    bool last_char_in_word;
     Crossword_Entry *horizontal_entry;
     Crossword_Entry *vertical_entry;
 } Cell;
@@ -53,7 +52,7 @@ typedef struct
     bool vertical_mode;
 } Crossword;
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
     const int texture_width = 1080;
@@ -81,6 +80,8 @@ int main(void)
         for (size_t i = 0; i < word->word_length; ++i)
         {
             c = &crossword.cells[y][x];
+            c->x = x;
+            c->y = y;
             c->user_letter = ' ';
             c->correct_letter = word->word[i];
             c->locked = false;
@@ -90,7 +91,6 @@ int main(void)
             ++x;
         }
 
-        c->last_char_in_word = true;
         ++crossword.num_entries;
     }
 
@@ -108,10 +108,9 @@ int main(void)
     RenderTexture2D target = LoadRenderTexture(texture_width, texture_height);
 
     Block_Centered_Text title;
-    block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE,
-                             texture_width, 5, BLACK);
+    block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE, texture_width, 5, BLACK);
 
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     // Set up adjustables
     adjust_init();
     ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
@@ -121,7 +120,7 @@ int main(void)
     adjust_register_global_float(g_min_zoom);
     adjust_register_global_float(g_max_zoom);
 
-    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////
     // Run the game
     while (!WindowShouldClose())
     {
@@ -130,8 +129,7 @@ int main(void)
         // handle mouse input
         {
             // click and drag to move the camera around
-            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
-                IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
             {
                 const Vector2 mouse_delta = GetMouseDelta();
@@ -145,8 +143,7 @@ int main(void)
             // check for a click on a cell
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                const Vector2 mouse_position =
-                    GetScreenToWorld2D(GetMousePosition(), camera);
+                const Vector2 mouse_position = GetScreenToWorld2D(GetMousePosition(), camera);
 
                 const int cell_x = (int)(mouse_position.x / g_cell_width);
                 const int cell_y = (int)(mouse_position.y / g_cell_width);
@@ -174,6 +171,27 @@ int main(void)
                     if (isalpha(key))
                     {
                         selected_cell->user_letter = (char)toupper(key);
+
+                        if (crossword.vertical_mode)
+                        {
+                        }
+                        else
+                        {
+                            const i16 next_x = selected_cell->x + 1;
+                            if (next_x < CW_DIM)
+                            {
+                                Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
+
+                                if (next_cell->correct_letter == 0)
+                                {
+                                    // check if word is correct
+                                }
+                                else
+                                {
+                                    selected_cell = next_cell;
+                                }
+                            }
+                        }
                     }
                     else if (key == KEY_BACKSPACE)
                     {
@@ -181,15 +199,14 @@ int main(void)
                     }
                 }
 
-                ///////////////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////
-                // TODO: right now this set up of tracking the entry and the //
-                // cell isn't working. The cell has access to the entry so   //
-                // do that instead. What I need to figure out, though, is    //
-                // how to allow the user to press tab to get to the next     //
-                // clue. Use key == KEY_TAB                                  //
-                ///////////////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////////////////////////
+                // TODO: right now this set up of tracking the entry and the cell isn't working. The
+                // cell has access to the entry so   do that instead. What I need to figure out,
+                // though, is how to allow the user to press tab to get to the next clue. Use
+                // key == KEY_TAB
+                ////////////////////////////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////////////////////////
 
                 key = GetKeyPressed();
             }
@@ -211,16 +228,15 @@ int main(void)
 
                     if (c->correct_letter != 0)
                     {
-                        DrawRectangle(g_cell_width * x, g_cell_height * y,
-                                      g_cell_width - 1, g_cell_height - 1,
-                                      c == selected_cell ? YELLOW : WHITE);
+                        DrawRectangle(g_cell_width * x, g_cell_height * y, g_cell_width - 1,
+                                      g_cell_height - 1, c == selected_cell ? YELLOW : WHITE);
 
                         if (c->user_letter != 0)
                         {
                             const char text[2] = {c->user_letter, '\0'};
                             const int font_size = 40;
-                            DrawText(text, x * g_cell_width + 13,
-                                     y * g_cell_height + 5, font_size, BLACK);
+                            DrawText(text, x * g_cell_width + 13, y * g_cell_height + 5, font_size,
+                                     BLACK);
                         }
                     }
                 }
@@ -231,14 +247,12 @@ int main(void)
             // render title and clue
             block_centered_text_render(&title);
 
-            DrawRectangle(100, texture_height - 100, texture_width - 200, 100,
-                          WHITE);
-            DrawRectangleLinesEx(
-                (Rectangle){99, texture_height - 101, texture_width - 198, 106},
-                5, BLACK);
+            DrawRectangle(100, texture_height - 100, texture_width - 200, 100, WHITE);
+            DrawRectangleLinesEx((Rectangle){99, texture_height - 101, texture_width - 198, 106}, 5,
+                                 BLACK);
 
-            DrawText(selected_cell->horizontal_entry->clue_str, 110,
-                     texture_height - 90, 20, BLACK);
+            DrawText(selected_cell->horizontal_entry->clue_str, 110, texture_height - 90, 20,
+                     BLACK);
 
             EndTextureMode();
         }
@@ -249,10 +263,10 @@ int main(void)
             const int W = GetScreenWidth();
             const int H = GetScreenHeight();
 
-            DrawTexturePro(target.texture,
-                           (Rectangle){0, 0, (float)target.texture.width,
-                                       (float)-target.texture.height},
-                           (Rectangle){0, 0, W, H}, (Vector2){0, 0}, 0, WHITE);
+            DrawTexturePro(
+                target.texture,
+                (Rectangle){0, 0, (float)target.texture.width, (float)-target.texture.height},
+                (Rectangle){0, 0, W, H}, (Vector2){0, 0}, 0, WHITE);
 
             EndDrawing();
         }
