@@ -30,6 +30,12 @@ typedef double f64;
 ///////////////////////////////////////////////////////////////////////////////
 // In Between
 ///////////////////////////////////////////////////////////////////////////////
+static inline bool in_between_i16(i32 min, i32 b, i32 max)
+{
+    assert(min < max);
+    return min <= b && b <= max;
+}
+
 static inline bool in_between_i32(i32 min, i32 b, i32 max)
 {
     assert(min < max);

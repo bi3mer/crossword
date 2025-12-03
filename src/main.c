@@ -143,14 +143,25 @@ int main(void)
             {
                 const Vector2 mouse_position = GetScreenToWorld2D(GetMousePosition(), camera);
 
-                const int cell_x = (int)(mouse_position.x / g_cell_width);
-                const int cell_y = (int)(mouse_position.y / g_cell_width);
+                const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
+                const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
 
-                if (in_between_i32(0, cell_x, CW_DIM - 1) &&
-                    in_between_i32(0, cell_y, CW_DIM - 1) &&
+                if (in_between_i16(0, cell_x, CW_DIM - 1) &&
+                    in_between_i16(0, cell_y, CW_DIM - 1) &&
                     crossword.cells[cell_y][cell_x].correct_letter != 0)
                 {
-                    selected_cell = &crossword.cells[cell_y][cell_x];
+                    Cell *next_cell = &crossword.cells[cell_y][cell_x];
+
+                    if (next_cell == selected_cell)
+                    {
+                        crossword.vertical_mode = crossword.vertical_mode
+                                                      ? selected_cell->horizontal_entry != NULL
+                                                      : selected_cell->vertical_entry != NULL;
+                    }
+                    else
+                    {
+                        selected_cell = next_cell;
+                    }
                 }
             }
 
@@ -265,8 +276,10 @@ int main(void)
             DrawRectangleLinesEx((Rectangle){99, texture_height - 101, texture_width - 198, 106}, 5,
                                  BLACK);
 
-            DrawText(selected_cell->horizontal_entry->clue_str, 110, texture_height - 90, 20,
-                     BLACK);
+            const char *clue_str = crossword.vertical_mode
+                                       ? selected_cell->vertical_entry->clue_str
+                                       : selected_cell->horizontal_entry->clue_str;
+            DrawText(clue_str, 110, texture_height - 90, 20, BLACK);
 
             EndTextureMode();
         }
