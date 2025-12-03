@@ -24,20 +24,31 @@ ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 ///////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player
 // plays the game.
+typedef struct
+{
+    char *clue_str;
+    bool complete;
+    size_t word_length;
+    i16 dir_x, dir_y;
+    i16 start_x, start_y;
+} Crossword_Entry;
+
 typedef struct Cell
 {
     char user_letter;
     char correct_letter;
     bool locked;
     bool last_char_in_word;
+    size_t horizontal_entry_index;
+    size_t vertical_entry_index;
 } Cell;
 
 typedef struct
 {
-    Cell cells[CW_DIM][CW_DIM];
-    Cell *word_start_cells[CW_DIM];
-    size_t num_words;
+    Crossword_Entry entries[CW_DIM];
     i16 min_x, max_x, min_y, max_y;
+    size_t num_entries;
+    Cell cells[CW_DIM][CW_DIM];
 } Crossword;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,10 +61,18 @@ int main(void)
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
 
+    // TODO: only update on event?
+
     Crossword crossword = {0};
-    crossword.num_words = 0;
+
     {
-        const Word *word = words;
+        const Word *word = words + 4;
+        Crossword_Entry *e = crossword.entries + crossword.num_entries;
+        e->clue_str = word->clues[GetRandomValue(0, 3)];
+        e->word_length = word->word_length;
+        e->dir_x = 1;
+        e->dir_y = 0;
+
         Cell *c;
         i16 x = 0, y = 0;
         for (size_t i = 0; i < word->word_length; ++i)
@@ -64,15 +83,10 @@ int main(void)
             c->locked = false;
 
             ++x;
-
-            // char user_letter;
-            // char correct_letter;
-            // bool locked;
-            // bool last_char_in_word;
-            // i16 x, y;
         }
 
         c->last_char_in_word = true;
+        ++crossword.num_entries;
     }
 
     Cell *selected_cell = NULL;
@@ -152,10 +166,10 @@ int main(void)
 
         // handle keyboard input
         {
-            if (selected_cell != NULL && selected_cell->locked == false)
+            int key = GetKeyPressed();
+            while (key != 0)
             {
-                int key = GetKeyPressed();
-                while (key != 0)
+                if (selected_cell != NULL && selected_cell->locked == false)
                 {
                     if (isalpha(key))
                     {
@@ -165,9 +179,19 @@ int main(void)
                     {
                         selected_cell->user_letter = ' ';
                     }
-
-                    key = GetKeyPressed();
                 }
+
+                ///////////////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////
+                // TODO: right now this set up of tracking the entry and the //
+                // cell isn't working. The cell has access to the entry so   //
+                // do that instead. What I need to figure out, though, is    //
+                // how to allow the user to press tab to get to the next     //
+                // clue. Use key == KEY_TAB                                  //
+                ///////////////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////
+
+                key = GetKeyPressed();
             }
         }
 
@@ -192,8 +216,8 @@ int main(void)
 
                         if (c->user_letter != 0)
                         {
-                            char text[2] = {c->user_letter, '\0'};
-                            int font_size = 40;
+                            const char text[2] = {c->user_letter, '\0'};
+                            const int font_size = 40;
                             DrawText(text, x * g_cell_width + 13,
                                      y * g_cell_height + 5, font_size, BLACK);
                         }
