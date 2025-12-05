@@ -10,6 +10,7 @@ const Entry = struct {
 };
 
 pub fn build(b: *std.Build) void {
+    ///////////////////////////////////////////////////////////////////////////
     // create the clue dataset
     const header_path = "src" ++ std.fs.path.sep_str ++ "clues.h";
     std.fs.cwd().access(header_path, .{}) catch {
@@ -125,6 +126,7 @@ pub fn build(b: *std.Build) void {
         allocator.free(word_file);
     };
 
+    ///////////////////////////////////////////////////////////////////////////
     // Create the build
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});

@@ -27,6 +27,7 @@ ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 // Structures for defining the crossword grid that expands as the player plays the game.
 typedef struct
 {
+    char *word;
     char *clue_str;
     bool complete;
     size_t word_length;
@@ -54,7 +55,7 @@ typedef struct
 } Crossword;
 
 static void cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
-static bool cw_place_word(Crossword *cw, const Word *w);
+static bool cw_place_word(Crossword *cw, const Word *w, const bool vertical);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -71,8 +72,8 @@ int main(void)
 
     Crossword crossword = {0};
 
-    cw_place_word(&crossword, words + 3);
-    cw_place_word(&crossword, words + 10);
+    cw_place_word(&crossword, words + 3, false);
+    cw_place_word(&crossword, words + 100, true);
     // cw_place_word(&crossword, words + 20);
 
     Cell *selected_cell = &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
@@ -169,39 +170,26 @@ int main(void)
 
                         if (crossword.vertical_mode)
                         {
+                            // TODO: do something if valid (function return bool?)
+                            cw_validate_entry(&crossword, selected_cell->vertical_entry);
+
                             const i16 next_y = selected_cell->y + 1;
-                            if (next_y < CW_DIM)
+                            if (next_y < CW_DIM &&
+                                crossword.cells[next_y][selected_cell->x].correct_letter != 0)
                             {
-                                Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
-                                if (next_cell->correct_letter == 0)
-                                {
-                                    cw_validate_entry(&crossword, selected_cell->vertical_entry);
-                                    // TODO: do something if the word is valid
-                                    // (vertical_entry.complete)
-                                }
-                                else
-                                {
-                                    selected_cell = next_cell;
-                                }
+                                selected_cell = &crossword.cells[next_y][selected_cell->x];
                             }
                         }
                         else
                         {
+                            // TODO: do something if valid (function return bool?)
+                            cw_validate_entry(&crossword, selected_cell->horizontal_entry);
+
                             const i16 next_x = selected_cell->x + 1;
-                            if (next_x < CW_DIM)
+                            if (next_x < CW_DIM &&
+                                crossword.cells[selected_cell->y][next_x].correct_letter != 0)
                             {
-                                Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
-                                if (next_cell->correct_letter == 0)
-                                {
-                                    cw_validate_entry(&crossword, selected_cell->horizontal_entry);
-                                    printf("Here: %i\n", selected_cell->horizontal_entry->complete);
-                                    // TODO: do something if the word is valid
-                                    // (horizontal_entry.complete)
-                                }
-                                else
-                                {
-                                    selected_cell = next_cell;
-                                }
+                                selected_cell = &crossword.cells[selected_cell->y][next_x];
                             }
                         }
                     }
@@ -245,11 +233,11 @@ int main(void)
                         crossword.cells[next_y][selected_cell->x].correct_letter != 0)
                     {
                         selected_cell = &crossword.cells[next_y][selected_cell->x];
+                        crossword.vertical_mode = true;
                     }
                 }
                 else if (key == KEY_RIGHT || key == KEY_LEFT)
                 {
-                    printf("Here\n");
                     const i16 next_x =
                         (key == KEY_RIGHT) ? selected_cell->x + 1 : selected_cell->x - 1;
 
@@ -257,6 +245,7 @@ int main(void)
                         crossword.cells[selected_cell->y][next_x].correct_letter != 0)
                     {
                         selected_cell = &crossword.cells[selected_cell->y][next_x];
+                        crossword.vertical_mode = false;
                     }
                 }
 
@@ -379,12 +368,11 @@ void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
     }
 }
 
-bool cw_place_word(Crossword *cw, const Word *w)
+bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 {
     assert(cw->num_entries <= CW_MAX_ENTRIES);
 
     bool valid_placement_found = false;
-    bool vertical = GetRandomValue(0, 1);
     i16 x, y;
     if (cw->num_entries == 0)
     {
@@ -397,19 +385,29 @@ bool cw_place_word(Crossword *cw, const Word *w)
     else
     {
         const size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
-        for (size_t _i = 0; _i < cw->num_entries; ++_i)
+        for (size_t _entry_index = 0; _entry_index < cw->num_entries; ++_entry_index)
         {
-            const size_t i = (_i + offset) % cw->num_entries;
-            const Crossword_Entry *e = cw->entries + i;
-            i16 dir_x, dir_y;
+            const size_t entry_index = (_entry_index + offset) % cw->num_entries;
+            const Crossword_Entry *e = cw->entries + entry_index;
+
+            for (size_t cw_word_index = 0; cw_word_index < e->word_length; ++cw_word_index)
+            {
+                for (size_t new_word_index = 0; new_word_index < w->word_length; ++new_word_index)
+                {
+                }
+            }
         }
     }
+
+    // TODO: handle case where we just need to place a word in empty cells and that's it. The
+    //       cw->num_entries code should probably use this function.
 
     if (!valid_placement_found)
         return true; // unable to place word
 
     // once we have
     Crossword_Entry *e = cw->entries + cw->num_entries;
+    e->word = w->word;
     e->start_x = x;
     e->start_y = y;
     e->clue_str = w->clues[GetRandomValue(0, 2)];
@@ -427,7 +425,7 @@ bool cw_place_word(Crossword *cw, const Word *w)
         c->x = x;
         c->y = y;
         c->user_letter = ' ';
-        c->correct_letter = toupper(w->word[i]);
+        c->correct_letter = (char)toupper(w->word[i]);
         c->locked = false;
 
         if (vertical)
