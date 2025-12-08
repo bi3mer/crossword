@@ -278,8 +278,8 @@ int main(void)
 
                     if (c->correct_letter != 0)
                     {
-                        const Color color =
-                            c->locked ? GRAY : (c == selected_cell ? YELLOW : WHITE);
+                        const Color color = c == selected_cell ? (c->locked ? LIGHTGRAY : YELLOW)
+                                                               : (c->locked ? GRAY : WHITE);
                         DrawRectangle(g_cell_width * x, g_cell_height * y, g_cell_width - 1,
                                       g_cell_height - 1, color);
 
