@@ -13,8 +13,13 @@
 #include "clues.h"
 #include "common.h"
 
+// One gripe I have is that the line `C size_t i` takes 14 characters: a lot of typing. So, I'm
+// going to try and make it a bit easier on myself by just having an upper case 'C' to represent.
+// I'm hoping that it will make the code easier to read, but if it doesn't, then I'll change back.
+#define C const
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Constants for the puzzle
+// Cants for the puzzle
 ADJUST_GLOBAL_CONST_INT(g_cell_width, 48);
 ADJUST_GLOBAL_CONST_INT(g_cell_height, 48);
 
@@ -56,13 +61,13 @@ typedef struct
 } Crossword;
 
 static void cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
-static bool cw_place_word(Crossword *cw, const Word *w, const bool vertical);
+static bool cw_place_word(Crossword *cw, C Word *w, C bool vertical);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
-    const int texture_width = 1080;
-    const int texture_height = 720;
+    C int texture_width = 1080;
+    C int texture_height = 720;
 
     InitWindow(texture_width, texture_height, "Crossword");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
@@ -118,9 +123,9 @@ int main(void)
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
             {
-                const Vector2 mouse_delta = GetMouseDelta();
-                const float new_x = camera.offset.x + mouse_delta.x;
-                const float new_y = camera.offset.y + mouse_delta.y;
+                C Vector2 mouse_delta = GetMouseDelta();
+                C float new_x = camera.offset.x + mouse_delta.x;
+                C float new_y = camera.offset.y + mouse_delta.y;
 
                 camera.offset.x = MAX(MIN(new_x, max_x), min_x);
                 camera.offset.y = MAX(MIN(new_y, max_y), min_y);
@@ -129,10 +134,10 @@ int main(void)
             // check for a click on a cell
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                const Vector2 mouse_position = GetScreenToWorld2D(GetMousePosition(), camera);
+                C Vector2 mouse_position = GetScreenToWorld2D(GetMousePosition(), camera);
 
-                const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
-                const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
+                C i16 cell_x = (i16)(mouse_position.x / g_cell_width);
+                C i16 cell_y = (i16)(mouse_position.y / g_cell_width);
 
                 if (in_between_i16(0, cell_x, CW_DIM - 1) &&
                     in_between_i16(0, cell_y, CW_DIM - 1) &&
@@ -174,7 +179,7 @@ int main(void)
                             // TODO: do something if valid (function return bool?)
                             cw_validate_entry(&crossword, selected_cell->vertical_entry);
 
-                            const i16 next_y = selected_cell->y + 1;
+                            C i16 next_y = selected_cell->y + 1;
                             if (next_y < CW_DIM &&
                                 crossword.cells[next_y][selected_cell->x].correct_letter != 0)
                             {
@@ -186,7 +191,7 @@ int main(void)
                             // TODO: do something if valid (function return bool?)
                             cw_validate_entry(&crossword, selected_cell->horizontal_entry);
 
-                            const i16 next_x = selected_cell->x + 1;
+                            C i16 next_x = selected_cell->x + 1;
                             if (next_x < CW_DIM &&
                                 crossword.cells[selected_cell->y][next_x].correct_letter != 0)
                             {
@@ -200,7 +205,7 @@ int main(void)
 
                         if (crossword.vertical_mode)
                         {
-                            const i16 next_y = selected_cell->y - 1;
+                            C i16 next_y = selected_cell->y - 1;
                             if (next_y >= 0)
                             {
                                 Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
@@ -212,7 +217,7 @@ int main(void)
                         }
                         else
                         {
-                            const i16 next_x = selected_cell->x - 1;
+                            C i16 next_x = selected_cell->x - 1;
                             if (next_x >= 0)
                             {
                                 Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
@@ -227,8 +232,7 @@ int main(void)
 
                 if (key == KEY_UP || key == KEY_DOWN)
                 {
-                    const i16 next_y =
-                        (key == KEY_UP) ? selected_cell->y - 1 : selected_cell->y + 1;
+                    C i16 next_y = (key == KEY_UP) ? selected_cell->y - 1 : selected_cell->y + 1;
 
                     if (in_between_i16(0, next_y, CW_DIM - 1) &&
                         crossword.cells[next_y][selected_cell->x].correct_letter != 0)
@@ -239,8 +243,7 @@ int main(void)
                 }
                 else if (key == KEY_RIGHT || key == KEY_LEFT)
                 {
-                    const i16 next_x =
-                        (key == KEY_RIGHT) ? selected_cell->x + 1 : selected_cell->x - 1;
+                    C i16 next_x = (key == KEY_RIGHT) ? selected_cell->x + 1 : selected_cell->x - 1;
 
                     if (in_between_i16(0, next_x, CW_DIM - 1) &&
                         crossword.cells[selected_cell->y][next_x].correct_letter != 0)
@@ -275,19 +278,19 @@ int main(void)
             {
                 for (int x = 0; x < CW_DIM; ++x)
                 {
-                    const Cell *c = &crossword.cells[y][x];
+                    C Cell *c = &crossword.cells[y][x];
 
                     if (c->correct_letter != 0)
                     {
-                        const Color color = c == selected_cell ? (c->locked ? LIGHTGRAY : YELLOW)
-                                                               : (c->locked ? GRAY : WHITE);
+                        C Color color = c == selected_cell ? (c->locked ? LIGHTGRAY : YELLOW)
+                                                           : (c->locked ? GRAY : WHITE);
                         DrawRectangle(g_cell_width * x, g_cell_height * y, g_cell_width - 1,
                                       g_cell_height - 1, color);
 
                         if (c->user_letter != 0)
                         {
-                            const char text[2] = {c->user_letter, '\0'};
-                            const int font_size = 40;
+                            C char text[2] = {c->user_letter, '\0'};
+                            C int font_size = 40;
                             DrawText(text, x * g_cell_width + 13, y * g_cell_height + 5, font_size,
                                      BLACK);
                         }
@@ -304,9 +307,8 @@ int main(void)
             DrawRectangleLinesEx((Rectangle){99, texture_height - 101, texture_width - 198, 106}, 5,
                                  BLACK);
 
-            const char *clue_str = crossword.vertical_mode
-                                       ? selected_cell->vertical_entry->clue_str
-                                       : selected_cell->horizontal_entry->clue_str;
+            C char *clue_str = crossword.vertical_mode ? selected_cell->vertical_entry->clue_str
+                                                       : selected_cell->horizontal_entry->clue_str;
             DrawText(clue_str, 110, texture_height - 90, 20, BLACK);
 
             EndTextureMode();
@@ -315,8 +317,8 @@ int main(void)
         // render the texture to the screen
         {
             BeginDrawing();
-            const int W = GetScreenWidth();
-            const int H = GetScreenHeight();
+            C int W = GetScreenWidth();
+            C int H = GetScreenHeight();
 
             DrawTexturePro(
                 target.texture,
@@ -342,7 +344,7 @@ void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 
     while (cw->cells[y][x].correct_letter != 0)
     {
-        const Cell *c = &cw->cells[y][x];
+        C Cell *c = &cw->cells[y][x];
         if (c->user_letter != c->correct_letter)
         {
             valid = false;
@@ -369,7 +371,7 @@ void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
     }
 }
 
-bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
+bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
 {
     assert(cw->num_entries <= CW_MAX_ENTRIES);
 
@@ -385,11 +387,11 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     }
     else
     {
-        const size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
+        C size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
         for (size_t _entry_index = 0; _entry_index < cw->num_entries; ++_entry_index)
         {
-            const size_t entry_index = (_entry_index + offset) % cw->num_entries;
-            const Crossword_Entry *e = cw->entries + entry_index;
+            C size_t entry_index = (_entry_index + offset) % cw->num_entries;
+            C Crossword_Entry *e = cw->entries + entry_index;
 
             for (size_t cw_word_index = 0; cw_word_index < e->word_length; ++cw_word_index)
             {
@@ -414,8 +416,8 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     e->clue_str = w->clues[GetRandomValue(0, 2)];
     e->word_length = w->word_length;
 
-    const i16 dir_x = !vertical;
-    const i16 dir_y = vertical;
+    C i16 dir_x = !vertical;
+    C i16 dir_y = vertical;
     e->dir_x = dir_x;
     e->dir_y = dir_y;
 
