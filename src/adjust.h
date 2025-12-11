@@ -87,21 +87,17 @@ SOFTWARE.
  *
  * ====================== Todo ======================
  *
+ * - [ ] Try `const volatile` for debug const declarations
+ *
  * - [ ] I shouldn't need two separate approaches for temp variables and main
  *       variables. Just malloc and make the interface way easier to work with.
  *
  * - [ ] adjust_register_global_float could maybe use adjust_register_global
  *       typeof, and then fail on unsupported type
  *
- * - [x] Store file modification times, and only re-read when necessary
- *
  * - [ ] I think if you do ADJUST_VAR_FLOAT(a, 2.0f) and then something
  *       like deregister_short, then everything could work. It means adding
  *       supporting remove in dynamic arrays. It's a litle obnoxious, though.
- *
- * - [x] Adjust update and with a second more targeted adjust_update_file so
- *       that users can be really specific if they want to be. Also, add an
- *       example to show the difference.
  *
  * - [ ] Need to add some kind of automatic testing to make life easier
  *
@@ -151,6 +147,10 @@ SOFTWARE.
  *       adjust_register_global_int(g_a);
  *       ```
  *
+ *    3. If you declare a global_int and register it as a float, there is an
+ *       error that is not detected, but is breaking. This should be detected
+ *       and reported as an error.
+ *
  * ====================== FAQ ======================
  *
  *  --> Did you come up with the idea behind adjust.h?
@@ -184,11 +184,12 @@ SOFTWARE.
  ******************************************************************************/
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 #ifdef MODE_PRODUCTION
-/******************************************************************************/
-/* In production mode, the interface is exposed, but compiles to nothing      */
-/******************************************************************************/
+////////////////////////////////////////////////////////////////////////////////
+// In production mode, the interface is exposed, but compiles to nothing
+////////////////////////////////////////////////////////////////////////////////
 #define ADJUST_CONST_BOOL(name, val) const bool name = val
 #define ADJUST_CONST_CHAR(name, val) const char name = val
 #define ADJUST_CONST_INT(name, val) const int name = val
@@ -200,6 +201,18 @@ SOFTWARE.
 #define ADJUST_VAR_INT(name, val) int name = val
 #define ADJUST_VAR_FLOAT(name, val) float name = val
 #define ADJUST_VAR_STRING(name, val) char *name = val
+
+#define ADJUST_GLOBAL_CONST_BOOL(name, val) const bool name = val
+#define ADJUST_GLOBAL_CONST_CHAR(name, val) const char name = val
+#define ADJUST_GLOBAL_CONST_FLOAT(name, val) const float name = val
+#define ADJUST_GLOBAL_CONST_INT(name, val) const int name = val
+#define ADJUST_GLOBAL_CONST_STRING(name, val) const char *name = val
+
+#define ADJUST_GLOBAL_VAR_BOOL(name, val) bool name = val
+#define ADJUST_GLOBAL_VAR_CHAR(name, val) char name = val
+#define ADJUST_GLOBAL_VAR_FLOAT(name, val) float name = val
+#define ADJUST_GLOBAL_VAR_INT(name, val) int name = val
+#define ADJUST_GLOBAL_VAR_STRING(name, val) char *name = val
 
 #define adjust_register_global_bool(name) ((void)0)
 #define adjust_register_global_char(name) ((void)0)
@@ -214,33 +227,28 @@ SOFTWARE.
 #define ADJUST_STRING(v) (v)
 
 #define adjust_init() ((void)0)
-#define adjust_init_with_allocator(                                            \
-    void *(*alloc)(const size_t size, void *user_data),                        \
-    void (*free)(void *ptr, const size_t size, void *user_data),               \
-    void *(*realloc)(void *base, const size_t size, void *user_data))          \
-    ((void)0)
+#define adjust_init_with_allocator(alloc, realloc, free, context) ((void)0)
+
 #define adjust_update_index(i) ((void)0)
 #define adjust_update_file(name) ((void)0)
 #define adjust_update() ((void)0)
 #define adjust_cleanup() ((void)0)
 
 #else
-/* In debug mode the user can adjust everything */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <time.h>
 #ifndef _WIN32
 #include <sys/param.h>
 #endif
 
-/******************************************************************************/
-/*                          Custom Memory Management                          */
-/******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+// 1. Custom Memory
+///////////////////////////////////////////////////////////////////////////////
 typedef void *(*_adjust_mem_alloc_func)(size_t bytes, void *user_data);
-typedef void *(*_adjust_mem_realloc_func)(void *ptr, size_t new_size,
-                                          void *user_data);
+typedef void *(*_adjust_mem_realloc_func)(void *ptr, size_t new_size, void *user_data);
 typedef void (*_adjust_mem_free_func)(void *ptr, void *user_data);
 
 typedef struct
@@ -251,6 +259,188 @@ typedef struct
     void *context;
 } _Adjust_Memory_Interface;
 
+extern _Adjust_Memory_Interface _a_memory;
+
+///////////////////////////////////////////////////////////////////////////////
+// 2. Dynamic Array
+///////////////////////////////////////////////////////////////////////////////
+typedef struct _DA_Header
+{
+    size_t length;
+    size_t capacity;
+    size_t item_size;
+} _DA_Header;
+
+///////////////////////////////////////////////////////////////////////////////
+// 3. adjust.h Interal Data
+///////////////////////////////////////////////////////////////////////////////
+typedef enum
+{
+    _ADJUST_FLOAT = 0,
+    _ADJUST_INT,
+    _ADJUST_BOOL,
+    _ADJUST_CHAR,
+    _ADJUST_STRING
+} _ADJUST_TYPE;
+
+typedef struct _ADJUST_ENTRY
+{
+    _ADJUST_TYPE type;
+    size_t line_number;
+    bool should_cleanup;
+    void *data;
+} _ADJUST_ENTRY;
+
+typedef struct _ADJUST_FILE
+{
+    char *file_name;
+    _ADJUST_ENTRY *adjustables;
+    time_t last_update;
+} _ADJUST_FILE;
+
+extern _ADJUST_FILE *_a_files; // all data goes here, organized by file
+
+///////////////////////////////////////////////////////////////////////////////
+// 4. Adjustable Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void _adjust_register(void *val, _ADJUST_TYPE type, const char *file_name,
+                      const size_t line_number);
+
+#define ADJUST_VAR_FLOAT(name, val)                                                                \
+    float name = val;                                                                              \
+    _adjust_register(&name, _ADJUST_FLOAT, __FILE__, __LINE__)
+
+#define ADJUST_CONST_FLOAT(name, val)                                                              \
+    float name = val;                                                                              \
+    _adjust_register(&name, _ADJUST_FLOAT, __FILE__, __LINE__)
+
+#define ADJUST_VAR_INT(name, val)                                                                  \
+    int name = val;                                                                                \
+    _adjust_register(&name, _ADJUST_INT, __FILE__, __LINE__)
+
+#define ADJUST_CONST_INT(name, val)                                                                \
+    int name = val;                                                                                \
+    _adjust_register(&name, _ADJUST_INT, __FILE__, __LINE__)
+
+#define ADJUST_VAR_CHAR(name, val)                                                                 \
+    char name = val;                                                                               \
+    _adjust_register(&name, _ADJUST_CHAR, __FILE__, __LINE__)
+
+#define ADJUST_CONST_CHAR(name, val)                                                               \
+    char name = val;                                                                               \
+    _adjust_register(&name, _ADJUST_CHAR, __FILE__, __LINE__)
+
+#define ADJUST_VAR_BOOL(name, val)                                                                 \
+    bool name = val;                                                                               \
+    _adjust_register(&name, _ADJUST_BOOL, __FILE__, __LINE__)
+
+#define ADJUST_CONST_BOOL(name, val)                                                               \
+    bool name = val;                                                                               \
+    _adjust_register(&name, _ADJUST_BOOL, __FILE__, __LINE__)
+
+#define ADJUST_VAR_STRING(name, val)                                                               \
+    char *name = NULL;                                                                             \
+    do                                                                                             \
+    {                                                                                              \
+        const char *_temp = val;                                                                   \
+        size_t _len = strlen(_temp) + 1;                                                           \
+        name = _a_memory.alloc(sizeof(char) * _len, NULL);                                         \
+        memcpy(name, _temp, _len);                                                                 \
+        _adjust_register(&name, _ADJUST_STRING, __FILE__, __LINE__);                               \
+    } while (0)
+
+#define ADJUST_CONST_STRING(name, val)                                                             \
+    char *name = NULL;                                                                             \
+    do                                                                                             \
+    {                                                                                              \
+        const char *_temp = val;                                                                   \
+        size_t _len = strlen(_temp) + 1;                                                           \
+        name = _a_memory.alloc(sizeof(char) * _len, NULL);                                         \
+        memcpy(name, _temp, _len);                                                                 \
+        _adjust_register(&name, _ADJUST_STRING, __FILE__, __LINE__);                               \
+    } while (0)
+
+///////////////////////////////////////////////////////////////////////////////
+// 5. Adjustable Global Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void _adjust_register_global(void *ref, _ADJUST_TYPE type, const char *file_name,
+                             const char *global_name);
+
+#define ADJUST_GLOBAL_CONST_BOOL(name, val) bool name = val
+#define ADJUST_GLOBAL_CONST_CHAR(name, val) char name = val
+#define ADJUST_GLOBAL_CONST_FLOAT(name, val) float name = val
+#define ADJUST_GLOBAL_CONST_INT(name, val) int name = val
+#define ADJUST_GLOBAL_CONST_STRING(name, val) char *name = val
+
+#define ADJUST_GLOBAL_VAR_BOOL(name, val) bool name = val
+#define ADJUST_GLOBAL_VAR_CHAR(name, val) char name = val
+#define ADJUST_GLOBAL_VAR_FLOAT(name, val) float name = val
+#define ADJUST_GLOBAL_VAR_INT(name, val) int name = val
+#define ADJUST_GLOBAL_VAR_STRING(name, val) char *name = val
+
+#define adjust_register_global_bool(name)                                                          \
+    _adjust_register_global(&name, _ADJUST_BOOL, __FILE__, #name)
+
+#define adjust_register_global_char(name)                                                          \
+    _adjust_register_global(&name, _ADJUST_CHAR, __FILE__, #name)
+
+#define adjust_register_global_float(name)                                                         \
+    _adjust_register_global(&name, _ADJUST_FLOAT, __FILE__, #name)
+
+#define adjust_register_global_int(name)                                                           \
+    _adjust_register_global(&name, _ADJUST_INT, __FILE__, #name)
+
+#define adjust_register_global_string(name)                                                        \
+    do                                                                                             \
+    {                                                                                              \
+        const char *_temp = name;                                                                  \
+        size_t _len = strlen(_temp) + 1;                                                           \
+        name = _a_memory.alloc(sizeof(char) * _len, _a_memory.context);                            \
+        strcpy(name, _temp);                                                                       \
+        _adjust_register_global(&name, _ADJUST_STRING, __FILE__, #name);                           \
+    } while (0)
+
+///////////////////////////////////////////////////////////////////////////////
+// 6. Adjustable Temporary Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val, const char *file_name,
+                               const size_t line_number);
+
+#define ADJUST_BOOL(v)                                                                             \
+    (*((bool *)_adjust_register_and_get(_ADJUST_BOOL, &(bool){v}, __FILE__, __LINE__)))
+
+#define ADJUST_CHAR(v)                                                                             \
+    (*((char *)_adjust_register_and_get(_ADJUST_CHAR, &(char){v}, __FILE__, __LINE__)))
+
+#define ADJUST_INT(v)                                                                              \
+    (*((int *)_adjust_register_and_get(_ADJUST_INT, &(int){v}, __FILE__, __LINE__)))
+
+#define ADJUST_FLOAT(v)                                                                            \
+    (*((float *)_adjust_register_and_get(_ADJUST_FLOAT, &(float){v}, __FILE__, __LINE__)))
+
+#define ADJUST_STRING(v)                                                                           \
+    (*((char **)_adjust_register_and_get(_ADJUST_STRING, &(char[]){v}, __FILE__, __LINE__)))
+
+///////////////////////////////////////////////////////////////////////////////
+// 7. adjust.h Usage
+///////////////////////////////////////////////////////////////////////////////
+void adjust_init(void);
+void adjust_init_with_allocator(_adjust_mem_alloc_func m_alloc, _adjust_mem_realloc_func m_realloc,
+                                _adjust_mem_free_func m_free, void *context);
+void adjust_update_index(const size_t index);
+void adjust_update_file(const char *file_name);
+void adjust_update(void);
+void adjust_cleanup(void);
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+#ifdef ADJUST_IMPLEMENTATION
+
+///////////////////////////////////////////////////////////////////////////////
+// 1. Custom Memory
+///////////////////////////////////////////////////////////////////////////////
 _Adjust_Memory_Interface _a_memory;
 
 static inline void *_a_default_alloc(size_t bytes, void *context)
@@ -259,8 +449,7 @@ static inline void *_a_default_alloc(size_t bytes, void *context)
     return malloc(bytes);
 }
 
-static inline void *_a_default_realloc(void *ptr, size_t new_size,
-                                       void *context)
+static inline void *_a_default_realloc(void *ptr, size_t new_size, void *context)
 {
     (void)context;
     return realloc(ptr, new_size);
@@ -272,21 +461,19 @@ static inline void _a_default_free(void *ptr, void *context)
     free(ptr);
 }
 
-/******************************************************************************/
-/*                               Dynamic Array                                */
-/******************************************************************************/
-typedef struct _DA_Header
-{
-    size_t length;
-    size_t capacity;
-    size_t item_size;
-} _DA_Header;
-
+///////////////////////////////////////////////////////////////////////////////
+// 2. Dynamic Array
+//
+// This dynamic array is based off of the dynamic array in STB which uses a
+// very cool header trick. The idea is not my own. Regardless, the
+// implementation is not meant for outside users which is why none of the
+// functions are directly exposed.
+///////////////////////////////////////////////////////////////////////////////
 static inline void *_da_init(const size_t item_size, const size_t capacity)
 {
     void *ptr = 0;
-    _DA_Header *h = (_DA_Header *)_a_memory.alloc(
-        item_size * capacity + sizeof(_DA_Header), _a_memory.context);
+    _DA_Header *h =
+        (_DA_Header *)_a_memory.alloc(item_size * capacity + sizeof(_DA_Header), _a_memory.context);
 
     if (h)
     {
@@ -304,8 +491,7 @@ static inline void *_da_init(const size_t item_size, const size_t capacity)
     return ptr;
 }
 
-static inline void _da_ensure_capacity(void **da,
-                                       const size_t capacity_increase)
+static inline void _da_ensure_capacity(void **da, const size_t capacity_increase)
 {
     _DA_Header *h = ((_DA_Header *)(*da) - 1);
     if (h->length + capacity_increase > h->capacity)
@@ -316,9 +502,8 @@ static inline void _da_ensure_capacity(void **da,
             new_capacity *= 2;
         }
 
-        h = (_DA_Header *)_a_memory.realloc(
-            h, h->item_size * new_capacity + sizeof(_DA_Header),
-            _a_memory.context);
+        h = (_DA_Header *)_a_memory.realloc(h, h->item_size * new_capacity + sizeof(_DA_Header),
+                                            _a_memory.context);
 
         if (!h)
         {
@@ -332,8 +517,7 @@ static inline void _da_ensure_capacity(void **da,
 }
 
 static inline void *_da_priority_insert(void **da, const size_t priority,
-                                        int (*compare)(const void *,
-                                                       const size_t))
+                                        int (*compare)(const void *, const size_t))
 {
     size_t i, insert_index;
 
@@ -354,8 +538,7 @@ static inline void *_da_priority_insert(void **da, const size_t priority,
 
     if (insert_index < h->length)
     {
-        memmove(bytes + ((insert_index + 1) * h->item_size),
-                bytes + (insert_index * h->item_size),
+        memmove(bytes + ((insert_index + 1) * h->item_size), bytes + (insert_index * h->item_size),
                 (h->length - insert_index) * h->item_size);
     }
 
@@ -384,17 +567,10 @@ static inline void _da_free(void *da)
     }
 }
 
-/******************************************************************************/
-/*                                  adjust.h                                  */
-/******************************************************************************/
-typedef enum
-{
-    _ADJUST_FLOAT = 0,
-    _ADJUST_INT,
-    _ADJUST_BOOL,
-    _ADJUST_CHAR,
-    _ADJUST_STRING
-} _ADJUST_TYPE;
+///////////////////////////////////////////////////////////////////////////////
+// 3. adjust.h Interal Data
+///////////////////////////////////////////////////////////////////////////////
+_ADJUST_FILE *_a_files;
 
 static inline size_t _adjust_type_to_size(const _ADJUST_TYPE t)
 {
@@ -409,9 +585,8 @@ static inline size_t _adjust_type_to_size(const _ADJUST_TYPE t)
     case _ADJUST_CHAR:
         return sizeof(char);
     case _ADJUST_STRING:
-        fprintf(stderr,
-                "Error: invalid adjust type size should not receive string "
-                "type\n");
+        fprintf(stderr, "Error: invalid adjust type size should not receive string "
+                        "type\n");
         exit(1);
     default:
         fprintf(stderr, "Error: invalid adjust type size: %i\n", t);
@@ -419,35 +594,17 @@ static inline size_t _adjust_type_to_size(const _ADJUST_TYPE t)
     }
 }
 
-typedef struct _ADJUST_ENTRY
-{
-    _ADJUST_TYPE type;
-    size_t line_number;
-    bool should_cleanup;
-    void *data;
-} _ADJUST_ENTRY;
-
-typedef struct _ADJUST_FILE
-{
-    char *file_name;
-    _ADJUST_ENTRY *adjustables;
-    time_t last_update;
-} _ADJUST_FILE;
-
-_ADJUST_FILE *_a_files;
-
-/* Core Functions for Adjust */
-static inline int _adjust_priority_compare(const void *element,
-                                           const size_t priority)
+static inline int _adjust_priority_compare(const void *element, const size_t priority)
 {
 
     const _ADJUST_ENTRY *ae = (const _ADJUST_ENTRY *)element;
     return (int)ae->line_number - (int)priority;
 }
 
-static inline void _adjust_register(void *val, _ADJUST_TYPE type,
-                                    const char *file_name,
-                                    const size_t line_number)
+///////////////////////////////////////////////////////////////////////////////
+// 4. Adjustable Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void _adjust_register(void *val, _ADJUST_TYPE type, const char *file_name, const size_t line_number)
 {
     _ADJUST_ENTRY *adjustables;
     bool found = false;
@@ -482,8 +639,7 @@ static inline void _adjust_register(void *val, _ADJUST_TYPE type,
 
         _a_files[file_index].file_name = full_file_name;
         _a_files[file_index].last_update = 0;
-        _a_files[file_index].adjustables =
-            (_ADJUST_ENTRY *)_da_init(sizeof(_ADJUST_ENTRY), 4);
+        _a_files[file_index].adjustables = (_ADJUST_ENTRY *)_da_init(sizeof(_ADJUST_ENTRY), 4);
 
         adjustables = _a_files[file_index].adjustables;
         adjustables[0].type = type;
@@ -497,9 +653,8 @@ static inline void _adjust_register(void *val, _ADJUST_TYPE type,
     {
         free(full_file_name);
 
-        _ADJUST_ENTRY *ae =
-            _da_priority_insert((void **)&_a_files[file_index].adjustables,
-                                line_number, _adjust_priority_compare);
+        _ADJUST_ENTRY *ae = _da_priority_insert((void **)&_a_files[file_index].adjustables,
+                                                line_number, _adjust_priority_compare);
 
         ae->type = type;
         ae->line_number = line_number;
@@ -508,65 +663,11 @@ static inline void _adjust_register(void *val, _ADJUST_TYPE type,
     }
 }
 
-/* Variable and constant declarations */
-#define ADJUST_VAR_FLOAT(name, val)                                            \
-    float name = val;                                                          \
-    _adjust_register(&name, _ADJUST_FLOAT, __FILE__, __LINE__)
-
-#define ADJUST_CONST_FLOAT(name, val)                                          \
-    float name = val;                                                          \
-    _adjust_register(&name, _ADJUST_FLOAT, __FILE__, __LINE__)
-
-#define ADJUST_VAR_INT(name, val)                                              \
-    int name = val;                                                            \
-    _adjust_register(&name, _ADJUST_INT, __FILE__, __LINE__)
-
-#define ADJUST_CONST_INT(name, val)                                            \
-    int name = val;                                                            \
-    _adjust_register(&name, _ADJUST_INT, __FILE__, __LINE__)
-
-#define ADJUST_VAR_CHAR(name, val)                                             \
-    char name = val;                                                           \
-    _adjust_register(&name, _ADJUST_CHAR, __FILE__, __LINE__)
-
-#define ADJUST_CONST_CHAR(name, val)                                           \
-    char name = val;                                                           \
-    _adjust_register(&name, _ADJUST_CHAR, __FILE__, __LINE__)
-
-#define ADJUST_VAR_BOOL(name, val)                                             \
-    bool name = val;                                                           \
-    _adjust_register(&name, _ADJUST_BOOL, __FILE__, __LINE__)
-
-#define ADJUST_CONST_BOOL(name, val)                                           \
-    bool name = val;                                                           \
-    _adjust_register(&name, _ADJUST_BOOL, __FILE__, __LINE__)
-
-#define ADJUST_VAR_STRING(name, val)                                           \
-    char *name = NULL;                                                         \
-    do                                                                         \
-    {                                                                          \
-        const char *_temp = val;                                               \
-        size_t _len = strlen(_temp) + 1;                                       \
-        name = _a_memory.alloc(sizeof(char) * _len, NULL);                     \
-        memcpy(name, _temp, _len);                                             \
-        _adjust_register(&name, _ADJUST_STRING, __FILE__, __LINE__);           \
-    } while (0)
-
-#define ADJUST_CONST_STRING(name, val)                                         \
-    char *name = NULL;                                                         \
-    do                                                                         \
-    {                                                                          \
-        const char *_temp = val;                                               \
-        size_t _len = strlen(_temp) + 1;                                       \
-        name = _a_memory.alloc(sizeof(char) * _len, NULL);                     \
-        memcpy(name, _temp, _len);                                             \
-        _adjust_register(&name, _ADJUST_STRING, __FILE__, __LINE__);           \
-    } while (0)
-
-/* Declarations for global adjustable data */
-static inline void _adjust_register_global(void *ref, _ADJUST_TYPE type,
-                                           const char *file_name,
-                                           const char *global_name)
+///////////////////////////////////////////////////////////////////////////////
+// 5. Adjustable Global Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void _adjust_register_global(void *ref, _ADJUST_TYPE type, const char *file_name,
+                             const char *global_name)
 {
     // Make sure the global exists while finding the correct line number
     FILE *file;
@@ -587,8 +688,7 @@ static inline void _adjust_register_global(void *ref, _ADJUST_TYPE type,
     while (fgets(buffer, sizeof(buffer), file) != NULL)
     {
         ++line_number;
-        if (strstr(buffer, "ADJUST_GLOBAL_") != NULL &&
-            strstr(buffer, global_name) != NULL)
+        if (strstr(buffer, "ADJUST_GLOBAL_") != NULL && strstr(buffer, global_name) != NULL)
         {
             char *name_start = strchr(buffer, '(');
             if (name_start == NULL)
@@ -614,52 +714,18 @@ static inline void _adjust_register_global(void *ref, _ADJUST_TYPE type,
 
     if (!found)
     {
-        fprintf(stderr, "Error: unable to find global \"%s\" in %s\n",
-                global_name, file_name);
+        fprintf(stderr, "Error: unable to find global \"%s\" in %s\n", global_name, file_name);
         exit(1);
     }
 
     _adjust_register(ref, type, file_name, line_number);
 }
 
-#define ADJUST_GLOBAL_CONST_BOOL(name, val) bool name = val
-#define ADJUST_GLOBAL_CONST_CHAR(name, val) char name = val
-#define ADJUST_GLOBAL_CONST_FLOAT(name, val) float name = val
-#define ADJUST_GLOBAL_CONST_INT(name, val) int name = val
-#define ADJUST_GLOBAL_CONST_STRING(name, val) char *name = val
-
-#define ADJUST_GLOBAL_VAR_BOOL(name, val) bool name = val
-#define ADJUST_GLOBAL_VAR_CHAR(name, val) char name = val
-#define ADJUST_GLOBAL_VAR_FLOAT(name, val) float name = val
-#define ADJUST_GLOBAL_VAR_INT(name, val) int name = val
-#define ADJUST_GLOBAL_VAR_STRING(name, val) char *name = val
-
-#define adjust_register_global_bool(name)                                      \
-    _adjust_register_global(&name, _ADJUST_BOOL, __FILE__, #name)
-
-#define adjust_register_global_char(name)                                      \
-    _adjust_register_global(&name, _ADJUST_CHAR, __FILE__, #name)
-
-#define adjust_register_global_float(name)                                     \
-    _adjust_register_global(&name, _ADJUST_FLOAT, __FILE__, #name)
-
-#define adjust_register_global_int(name)                                       \
-    _adjust_register_global(&name, _ADJUST_INT, __FILE__, #name)
-
-#define adjust_register_global_string(name)                                    \
-    do                                                                         \
-    {                                                                          \
-        const char *_temp = name;                                              \
-        size_t _len = strlen(_temp) + 1;                                       \
-        name = _a_memory.alloc(sizeof(char) * _len, _a_memory.context);        \
-        strcpy(name, _temp);                                                   \
-        _adjust_register_global(&name, _ADJUST_STRING, __FILE__, #name);       \
-    } while (0)
-
-/* Declarations for temporary data */
-static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
-                                             const char *file_name,
-                                             const size_t line_number)
+///////////////////////////////////////////////////////////////////////////////
+// 6. Adjustable Temporary Variable Declarations
+///////////////////////////////////////////////////////////////////////////////
+void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val, const char *file_name,
+                               const size_t line_number)
 {
     _ADJUST_ENTRY *adjustables;
     size_t file_index, i;
@@ -701,8 +767,8 @@ static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
             }
         }
 
-        _ADJUST_ENTRY *ae = _da_priority_insert(
-            (void **)&adjustables, line_number, _adjust_priority_compare);
+        _ADJUST_ENTRY *ae =
+            _da_priority_insert((void **)&adjustables, line_number, _adjust_priority_compare);
 
         ae->type = type;
         ae->line_number = line_number;
@@ -712,8 +778,7 @@ static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
         {
             ae->data = _a_memory.alloc(sizeof(char *), _a_memory.context);
             char **str_ptr = (char **)ae->data;
-            *str_ptr =
-                _a_memory.alloc(strlen((char *)val) + 1, _a_memory.context);
+            *str_ptr = _a_memory.alloc(strlen((char *)val) + 1, _a_memory.context);
             strcpy(*str_ptr, (char *)val);
         }
         else
@@ -731,8 +796,7 @@ static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
         _da_ensure_capacity((void **)&_a_files, 1);
 
         _a_files[file_index].file_name = full_file_name;
-        _a_files[file_index].adjustables =
-            (_ADJUST_ENTRY *)_da_init(sizeof(_ADJUST_ENTRY), 4);
+        _a_files[file_index].adjustables = (_ADJUST_ENTRY *)_da_init(sizeof(_ADJUST_ENTRY), 4);
         _a_files[file_index].last_update = 0;
 
         adjustables = _a_files[file_index].adjustables;
@@ -744,11 +808,9 @@ static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
 
         if (type == _ADJUST_STRING)
         {
-            adjustables[0].data =
-                _a_memory.alloc(sizeof(char *), _a_memory.context);
+            adjustables[0].data = _a_memory.alloc(sizeof(char *), _a_memory.context);
             char **str_ptr = (char **)adjustables[0].data;
-            *str_ptr =
-                _a_memory.alloc(strlen((char *)val) + 1, _a_memory.context);
+            *str_ptr = _a_memory.alloc(strlen((char *)val) + 1, _a_memory.context);
             strcpy(*str_ptr, (char *)val);
         }
         else
@@ -770,28 +832,10 @@ static inline void *_adjust_register_and_get(const _ADJUST_TYPE type, void *val,
     exit(1);
 }
 
-#define ADJUST_BOOL(v)                                                         \
-    (*((bool *)_adjust_register_and_get(_ADJUST_BOOL, &(bool){v}, __FILE__,    \
-                                        __LINE__)))
-
-#define ADJUST_CHAR(v)                                                         \
-    (*((char *)_adjust_register_and_get(_ADJUST_CHAR, &(char){v}, __FILE__,    \
-                                        __LINE__)))
-
-#define ADJUST_INT(v)                                                          \
-    (*((int *)_adjust_register_and_get(_ADJUST_INT, &(int){v}, __FILE__,       \
-                                       __LINE__)))
-
-#define ADJUST_FLOAT(v)                                                        \
-    (*((float *)_adjust_register_and_get(_ADJUST_FLOAT, &(float){v}, __FILE__, \
-                                         __LINE__)))
-
-#define ADJUST_STRING(v)                                                       \
-    (*((char **)_adjust_register_and_get(_ADJUST_STRING, &(char[]){v},         \
-                                         __FILE__, __LINE__)))
-
-/* init, update, and cleanup*/
-static inline void adjust_init(void)
+///////////////////////////////////////////////////////////////////////////////
+// 7. adjust.h Usage
+///////////////////////////////////////////////////////////////////////////////
+void adjust_init(void)
 {
     _a_memory.alloc = _a_default_alloc;
     _a_memory.realloc = _a_default_realloc;
@@ -801,10 +845,8 @@ static inline void adjust_init(void)
     _a_files = (_ADJUST_FILE *)_da_init(sizeof(_ADJUST_FILE), 4);
 }
 
-static inline void
-adjust_init_with_allocator(_adjust_mem_alloc_func m_alloc,
-                           _adjust_mem_realloc_func m_realloc,
-                           _adjust_mem_free_func m_free, void *context)
+void adjust_init_with_allocator(_adjust_mem_alloc_func m_alloc, _adjust_mem_realloc_func m_realloc,
+                                _adjust_mem_free_func m_free, void *context)
 {
     _a_memory.alloc = m_alloc;
     _a_memory.realloc = m_realloc;
@@ -814,7 +856,7 @@ adjust_init_with_allocator(_adjust_mem_alloc_func m_alloc,
     _a_files = (_ADJUST_FILE *)_da_init(sizeof(_ADJUST_FILE), 4);
 }
 
-static inline void adjust_update_index(const size_t index)
+void adjust_update_index(const size_t index)
 {
     _ADJUST_FILE af;
     _ADJUST_ENTRY e;
@@ -853,8 +895,7 @@ static inline void adjust_update_index(const size_t index)
     }
     else
     {
-        fprintf(stderr, "Error: unable to retrieve file metadata: %s\n",
-                af.file_name);
+        fprintf(stderr, "Error: unable to retrieve file metadata: %s\n", af.file_name);
     }
 
     // after the metadata request so we can avoid useless context switching
@@ -875,8 +916,7 @@ static inline void adjust_update_index(const size_t index)
         {
             if (fgets(buffer, sizeof(buffer), file) == NULL)
             {
-                fprintf(stderr, "Error: EOF before line %zu in %s\n",
-                        e.line_number, af.file_name);
+                fprintf(stderr, "Error: EOF before line %zu in %s\n", e.line_number, af.file_name);
                 fclose(file);
                 exit(1);
             }
@@ -890,34 +930,31 @@ static inline void adjust_update_index(const size_t index)
             value_start = strchr(buffer, ',');
             if (value_start == NULL)
             {
-                fprintf(stderr,
-                        "Error: no comma found in ADJUST macro: %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: no comma found in ADJUST macro: %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
             ++value_start; /* skip the
                                 ',' */
         }
-        else if (strstr(buffer, "ADJUST_BOOL(") ||
-                 strstr(buffer, "ADJUST_CHAR(") ||
-                 strstr(buffer, "ADJUST_INT(") ||
-                 strstr(buffer, "ADJUST_FLOAT(") ||
+        else if (strstr(buffer, "ADJUST_BOOL(") || strstr(buffer, "ADJUST_CHAR(") ||
+                 strstr(buffer, "ADJUST_INT(") || strstr(buffer, "ADJUST_FLOAT(") ||
                  strstr(buffer, "ADJUST_STRING("))
         {
             value_start = strchr(buffer, '(');
             if (value_start == NULL)
             {
-                fprintf(stderr, "Error: no opening paren found: %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: no opening paren found: %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
         }
         else
         {
-            fprintf(stderr, "Error: unrecognized ADJUST macro format: %s:%zu\n",
-                    af.file_name, e.line_number);
+            fprintf(stderr, "Error: unrecognized ADJUST macro format: %s:%zu\n", af.file_name,
+                    e.line_number);
             fclose(file);
             exit(1);
         }
@@ -935,8 +972,8 @@ static inline void adjust_update_index(const size_t index)
         {
             if (sscanf(value_start, "%f", (float *)e.data) != 1)
             {
-                fprintf(stderr, "Error: failed to parse float: %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: failed to parse float: %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
@@ -948,8 +985,8 @@ static inline void adjust_update_index(const size_t index)
         {
             if (sscanf(value_start, "%i", (int *)e.data) != 1)
             {
-                fprintf(stderr, "Error, failed to parse int: %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error, failed to parse int: %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
@@ -964,16 +1001,14 @@ static inline void adjust_update_index(const size_t index)
             {
                 *(bool *)e.data = true;
             }
-            else if (*value_start == '1' ||
-                     strncmp(value_start, "FALSE", 5) == 0 ||
+            else if (*value_start == '1' || strncmp(value_start, "FALSE", 5) == 0 ||
                      strncmp(value_start, "false", 5) == 0)
             {
                 *(bool *)e.data = false;
             }
             else
             {
-                fprintf(stderr,
-                        "Error: failed to parse bool (true or false): %s:%zu\n",
+                fprintf(stderr, "Error: failed to parse bool (true or false): %s:%zu\n",
                         af.file_name, e.line_number);
                 fclose(file);
                 exit(1);
@@ -1000,8 +1035,8 @@ static inline void adjust_update_index(const size_t index)
             ++quote_start;
             if (*quote_start == '\'')
             {
-                fprintf(stderr, "Error: char format '' invalid in C, %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: char format '' invalid in C, %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
@@ -1013,8 +1048,8 @@ static inline void adjust_update_index(const size_t index)
 
             if (*(quote_start + 1) != '\'')
             {
-                fprintf(stderr, "Error: missing ending ' for char, %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: missing ending ' for char, %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
@@ -1060,21 +1095,18 @@ static inline void adjust_update_index(const size_t index)
 
             if (*quote_end != '"')
             {
-                fprintf(stderr,
-                        "Error: failed to find ending quotation (\"): %s:%zu\n",
+                fprintf(stderr, "Error: failed to find ending quotation (\"): %s:%zu\n",
                         af.file_name, e.line_number);
                 fclose(file);
                 exit(1);
             }
 
             string_length = (size_t)(quote_end - quote_start);
-            new_string = _a_memory.realloc(*(char **)e.data, string_length + 1,
-                                           _a_memory.context);
+            new_string = _a_memory.realloc(*(char **)e.data, string_length + 1, _a_memory.context);
             if (!new_string)
             {
-                fprintf(stderr,
-                        "Error: failed to reallocate string memory: %s:%zu\n",
-                        af.file_name, e.line_number);
+                fprintf(stderr, "Error: failed to reallocate string memory: %s:%zu\n", af.file_name,
+                        e.line_number);
                 fclose(file);
                 exit(1);
             }
@@ -1145,7 +1177,7 @@ static inline void adjust_update_index(const size_t index)
     fclose(file);
 }
 
-static inline void adjust_update_file(const char *file_name)
+void adjust_update_file(const char *file_name)
 {
     size_t file_index;
 #if _WIN32
@@ -1166,8 +1198,7 @@ static inline void adjust_update_file(const char *file_name)
     const size_t length = _da_length(_a_files);
     for (file_index = 0; file_index < length; file_index++)
     {
-        if (strncmp(_a_files[file_index].file_name, path_buffer,
-                    file_name_length) == 0)
+        if (strncmp(_a_files[file_index].file_name, path_buffer, file_name_length) == 0)
         {
             break;
         }
@@ -1183,7 +1214,7 @@ static inline void adjust_update_file(const char *file_name)
     free(res);
 }
 
-static inline void adjust_update(void)
+void adjust_update(void)
 {
     size_t file_index;
     const size_t length = _da_length(_a_files);
@@ -1193,7 +1224,7 @@ static inline void adjust_update(void)
     }
 }
 
-static inline void adjust_cleanup(void)
+void adjust_cleanup(void)
 {
     if (!_a_files)
         return;
@@ -1245,6 +1276,7 @@ static inline void adjust_cleanup(void)
     _da_free(_a_files);
     _a_files = NULL;
 }
-#endif
 
-#endif
+#endif // ADJUST_IMPLEMENTATION
+#endif // MODE_PRODUCTION
+#endif // __ADJUST__

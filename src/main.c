@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 
+#define ADJUST_IMPLEMENTATION
 #include "adjust.h"
 #include "raylib.h"
 
