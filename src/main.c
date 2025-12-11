@@ -230,22 +230,44 @@ int main(void)
                     }
                 }
 
-                if (key == KEY_UP || key == KEY_DOWN)
+                if (key == KEY_UP || (key == KEY_K && selected_cell->locked))
                 {
-                    C i16 next_y = (key == KEY_UP) ? selected_cell->y - 1 : selected_cell->y + 1;
+                    C i16 next_y = selected_cell->y - 1;
 
-                    if (in_between_i16(0, next_y, CW_DIM - 1) &&
+                    if (next_y >= 0 &&
                         crossword.cells[next_y][selected_cell->x].correct_letter != 0)
                     {
                         selected_cell = &crossword.cells[next_y][selected_cell->x];
                         crossword.vertical_mode = true;
                     }
                 }
-                else if (key == KEY_RIGHT || key == KEY_LEFT)
+                else if (key == KEY_DOWN || (key == KEY_J && selected_cell->locked))
                 {
-                    C i16 next_x = (key == KEY_RIGHT) ? selected_cell->x + 1 : selected_cell->x - 1;
+                    C i16 next_y = selected_cell->y + 1;
 
-                    if (in_between_i16(0, next_x, CW_DIM - 1) &&
+                    if (next_y < CW_DIM &&
+                        crossword.cells[next_y][selected_cell->x].correct_letter != 0)
+                    {
+                        selected_cell = &crossword.cells[next_y][selected_cell->x];
+                        crossword.vertical_mode = true;
+                    }
+                }
+                else if (key == KEY_RIGHT || (key == KEY_L && selected_cell->locked))
+                {
+                    C i16 next_x = selected_cell->x + 1;
+
+                    if (next_x < CW_DIM &&
+                        crossword.cells[selected_cell->y][next_x].correct_letter != 0)
+                    {
+                        selected_cell = &crossword.cells[selected_cell->y][next_x];
+                        crossword.vertical_mode = false;
+                    }
+                }
+                else if (key == KEY_LEFT || (key == KEY_H && selected_cell->locked))
+                {
+                    C i16 next_x = selected_cell->x - 1;
+
+                    if (next_x >= 0 &&
                         crossword.cells[selected_cell->y][next_x].correct_letter != 0)
                     {
                         selected_cell = &crossword.cells[selected_cell->y][next_x];
