@@ -145,6 +145,8 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addIncludePath(raylib_dep.path("src"));
 
     if (b.build_root.handle.openDir("src", .{ .iterate = true })) |dir| {
+        const is_release = optimize != .Debug;
+
         var d = dir;
         defer d.close();
         var iter = d.iterate();
@@ -152,7 +154,10 @@ pub fn build(b: *std.Build) void {
             if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".c")) {
                 exe.root_module.addCSourceFile(.{
                     .file = b.path(b.fmt("src/{s}", .{entry.name})),
-                    .flags = &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic" },
+                    .flags = if (is_release)
+                        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
+                    else
+                        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic" },
                 });
             }
         }
