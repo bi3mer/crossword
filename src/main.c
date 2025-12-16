@@ -286,7 +286,8 @@ int main(void)
 
                     crossword.vertical_mode = next->dir_y == 1;
 
-                    // TODO: tab should move camera so that the cells are in focus
+                    camera.target.x = g_cell_width * next->start_x - 250;
+                    camera.target.y = g_cell_height * next->start_y - 250;
                 }
                 else
                 {
