@@ -82,7 +82,11 @@ int main(void)
     cw_place_word(&crossword, words + 3, false);
     cw_place_word(&crossword, words + 100, true);
     cw_place_word(&crossword, words + 200, false);
-    cw_place_word(&crossword, words + 300, true);
+    cw_place_word(&crossword, words + 300, false);
+    cw_place_word(&crossword, words + 400, true);
+    cw_place_word(&crossword, words + 500, false);
+    cw_place_word(&crossword, words + 600, true);
+    cw_place_word(&crossword, words + 700, false);
 
     Cell *selected_cell =
         &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
@@ -463,13 +467,10 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
     }
     else
     {
-        // TODO: find intersections
-        // TODO: handle crossword limitations (i.e. you can't make a new word by
-        // accident)
         C size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
         C i16 dir_x = vertical ? 0 : 1;
         C i16 dir_y = vertical ? 1 : 0;
-        printf("dir = (%d, %d)\n", dir_x, dir_y);
+
         for (size_t i = 0; i < cw->num_entries; ++i)
         {
             C size_t entry_index = (i + offset) % cw->num_entries;
@@ -479,6 +480,9 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
                 continue;
             else if (!vertical && e->dir_x == 1)
                 continue;
+
+            // TODO: check that start and end of word to make sure it doesn't
+            // connect with anything
 
             for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
             {
@@ -499,12 +503,39 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
                         C char correct_letter = cw->cells[y][x].correct_letter;
                         if (correct_letter == 0)
                         {
-                            // neighbor checking stuff for later
+                            if (vertical)
+                            {
+                                if (x <= 0 || cw->cells[y][x - 1].correct_letter != 0)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+
+                                if (x >= CW_DIM - 1 ||
+                                    cw->cells[y][x + 1].correct_letter != 0)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                if (y <= 0 || cw->cells[y - 1][x].correct_letter != 0)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+
+                                if (y >= CW_DIM - 1 ||
+                                    cw->cells[y + 1][x].correct_letter != 0)
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                            }
                         }
                         else if (correct_letter != w->word[word_index])
                         {
-                            printf("Letter failure (%d, %d): %c != %c\n", x, y,
-                                   correct_letter, w->word[word_index]);
                             valid = false;
                             break;
                         }
