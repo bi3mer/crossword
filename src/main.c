@@ -393,6 +393,7 @@ void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
     }
 }
 
+// returns true if there was an error with placement, otherwise false
 bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
 {
     assert(cw->num_entries <= CW_MAX_ENTRIES);
@@ -409,28 +410,72 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
     }
     else
     {
+        // TODO: find intersections
+        // TODO: handle crossword limitations (i.e. you can't make a new word by accident)
         C size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
-        for (size_t _entry_index = 0; _entry_index < cw->num_entries; ++_entry_index)
+        C i16 dir_x = vertical ? 0 : 1;
+        C i16 dir_y = vertical ? 1 : 0;
+        for (size_t i = 0; i < cw->num_entries; ++i)
         {
-            C size_t entry_index = (_entry_index + offset) % cw->num_entries;
+            C size_t entry_index = (i + offset) % cw->num_entries;
             C Crossword_Entry *e = cw->entries + entry_index;
 
-            for (size_t cw_word_index = 0; cw_word_index < e->word_length; ++cw_word_index)
+            for (i16 word_offset = 0; word_offset < (i16)w->word_length; ++word_offset)
             {
-                for (size_t new_word_index = 0; new_word_index < w->word_length; ++new_word_index)
+                x = e->start_x - dir_x * word_offset;
+                y = e->start_y - dir_y * word_offset;
+                if (x < 0 || y < 0)
+                    break;
+
+                printf("(%d, %d)\n", x, y);
+
+                bool valid = true;
+                for (size_t word_index = 0; word_index < w->word_length; ++word_index)
                 {
+                    C char correct_letter = cw->cells[y][x].correct_letter;
+                    if (correct_letter == 0)
+                    {
+                        // neighbor checking stuff for later
+                    }
+                    else if (correct_letter != w->word[word_index])
+                    {
+                        printf("%c != %c\n", w->word[word_index], correct_letter);
+                        valid = false;
+                        break;
+                    }
+
+                    x += dir_x;
+                    y += dir_y;
+                    if (x >= CW_DIM || y >= CW_DIM)
+                    {
+                        printf("2\n");
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid)
+                {
+                    x = e->start_x - dir_x * word_offset;
+                    y = e->start_y - dir_y * word_offset;
+                    valid_placement_found = true;
+                    break;
                 }
             }
+
+            if (valid_placement_found)
+                break;
         }
     }
 
-    // TODO: handle case where we just need to place a word in empty cells and that's it. The
-    //       cw->num_entries code should probably use this function.
-
     if (!valid_placement_found)
-        return true; // unable to place word
+    {
+        printf("Failed to find placement for: %s\n", w->word);
+        return true; // unable to place word (meaning, a new word is needed)
+    }
 
-    // once we have
+    printf("Found placement for: %s\n", w->word);
+
     Crossword_Entry *e = cw->entries + cw->num_entries;
     e->word = w->word;
     e->start_x = x;

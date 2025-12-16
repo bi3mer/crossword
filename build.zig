@@ -57,9 +57,14 @@ pub fn build(b: *std.Build) void {
             }
 
             const surprisal = -@log(std.fmt.parseFloat(f64, fields[1]) catch @panic("unable to calculate surprisal"));
+            const word_upper = allocator.alloc(u8, fields[0].len) catch @panic("alloc failed");
+            for (fields[0], 0..) |c, j| {
+                word_upper[j] = std.ascii.toUpper(c);
+            }
+            defer allocator.free(word_upper);
 
             entries.append(allocator, .{
-                .word = fields[0],
+                .word = word_upper,
                 .category = fields[2],
                 .clue1 = fields[3],
                 .clue2 = fields[4],
