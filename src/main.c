@@ -82,6 +82,7 @@ int main(void)
     cw_place_word(&crossword, words + 3, false);
     cw_place_word(&crossword, words + 100, true);
     cw_place_word(&crossword, words + 200, false);
+    cw_place_word(&crossword, words + 300, true);
 
     Cell *selected_cell =
         &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
@@ -285,6 +286,8 @@ int main(void)
                     selected_cell = &crossword.cells[next->start_y][next->start_x];
 
                     crossword.vertical_mode = next->dir_y == 1;
+
+                    // TODO: tab should move camera so that the cells are in focus
                 }
                 else
                 {
@@ -466,48 +469,66 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
         C size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
         C i16 dir_x = vertical ? 0 : 1;
         C i16 dir_y = vertical ? 1 : 0;
+        printf("dir = (%d, %d)\n", dir_x, dir_y);
         for (size_t i = 0; i < cw->num_entries; ++i)
         {
             C size_t entry_index = (i + offset) % cw->num_entries;
             C Crossword_Entry *e = cw->entries + entry_index;
 
-            for (i16 word_offset = 0; word_offset < (i16)w->word_length; ++word_offset)
+            if (vertical && e->dir_y == 1)
+                continue;
+            else if (!vertical && e->dir_x == 1)
+                continue;
+
+            for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
             {
-                x = e->start_x - dir_x * word_offset;
-                y = e->start_y - dir_y * word_offset;
-                if (x < 0 || y < 0)
-                    break;
+                C i16 start_x = e->start_x + e->dir_x * entry_offset;
+                C i16 start_y = e->start_y + e->dir_y * entry_offset;
 
-                bool valid = true;
-                for (size_t word_index = 0; word_index < w->word_length; ++word_index)
+                for (i16 word_offset = 0; word_offset < (i16)w->word_length;
+                     ++word_offset)
                 {
-                    C char correct_letter = cw->cells[y][x].correct_letter;
-                    if (correct_letter == 0)
-                    {
-                        // neighbor checking stuff for later
-                    }
-                    else if (correct_letter != w->word[word_index])
-                    {
-                        valid = false;
+                    x = start_x - dir_x * word_offset;
+                    y = start_y - dir_y * word_offset;
+                    if (x < 0 || y < 0)
                         break;
+
+                    bool valid = true;
+                    for (size_t word_index = 0; word_index < w->word_length; ++word_index)
+                    {
+                        C char correct_letter = cw->cells[y][x].correct_letter;
+                        if (correct_letter == 0)
+                        {
+                            // neighbor checking stuff for later
+                        }
+                        else if (correct_letter != w->word[word_index])
+                        {
+                            printf("Letter failure (%d, %d): %c != %c\n", x, y,
+                                   correct_letter, w->word[word_index]);
+                            valid = false;
+                            break;
+                        }
+
+                        x += dir_x;
+                        y += dir_y;
+                        if (x >= CW_DIM || y >= CW_DIM)
+                        {
+                            valid = false;
+                            break;
+                        }
                     }
 
-                    x += dir_x;
-                    y += dir_y;
-                    if (x >= CW_DIM || y >= CW_DIM)
+                    if (valid)
                     {
-                        valid = false;
+                        x = start_x - dir_x * word_offset;
+                        y = start_y - dir_y * word_offset;
+                        valid_placement_found = true;
                         break;
                     }
                 }
 
-                if (valid)
-                {
-                    x = e->start_x - dir_x * word_offset;
-                    y = e->start_y - dir_y * word_offset;
-                    valid_placement_found = true;
+                if (valid_placement_found)
                     break;
-                }
             }
 
             if (valid_placement_found)
