@@ -245,53 +245,44 @@ int main(void)
                }
             }
 
+            // arrow-based movement and vi-based movement for locked cells
+            i16 dir_x = 0, dir_y = 0;
+            bool vertical = crossword.vertical_mode;
+
             if (key == KEY_UP || (key == KEY_K && selected_cell->locked))
             {
-               C i16 next_y = selected_cell->y - 1;
-
-               if (next_y >= 0 &&
-                   crossword.cells[next_y][selected_cell->x].correct_letter !=
-                       0)
-               {
-                  selected_cell = &crossword.cells[next_y][selected_cell->x];
-                  crossword.vertical_mode = true;
-               }
+               dir_y = -1;
+               vertical = true;
             }
             else if (key == KEY_DOWN || (key == KEY_J && selected_cell->locked))
             {
-               C i16 next_y = selected_cell->y + 1;
-
-               if (next_y < CW_DIM &&
-                   crossword.cells[next_y][selected_cell->x].correct_letter !=
-                       0)
-               {
-                  selected_cell = &crossword.cells[next_y][selected_cell->x];
-                  crossword.vertical_mode = true;
-               }
+               dir_y = 1;
+               vertical = true;
             }
             else if (key == KEY_RIGHT ||
                      (key == KEY_L && selected_cell->locked))
             {
-               C i16 next_x = selected_cell->x + 1;
-
-               if (next_x < CW_DIM &&
-                   crossword.cells[selected_cell->y][next_x].correct_letter !=
-                       0)
-               {
-                  selected_cell = &crossword.cells[selected_cell->y][next_x];
-                  crossword.vertical_mode = false;
-               }
+               dir_x = 1;
+               vertical = false;
             }
             else if (key == KEY_LEFT || (key == KEY_H && selected_cell->locked))
             {
-               C i16 next_x = selected_cell->x - 1;
+               dir_x = -1;
+               vertical = false;
+            }
 
-               if (next_x >= 0 &&
-                   crossword.cells[selected_cell->y][next_x].correct_letter !=
-                       0)
+            if (dir_x || dir_y)
+            {
+               i16 x = selected_cell->x + dir_x;
+               i16 y = selected_cell->y + dir_y;
+               if (x >= 0 && x < CW_DIM && y >= 0 && y < CW_DIM)
                {
-                  selected_cell = &crossword.cells[selected_cell->y][next_x];
-                  crossword.vertical_mode = false;
+                  Cell *next = &crossword.cells[y][x];
+                  if (next->correct_letter != 0)
+                  {
+                     selected_cell = next;
+                     crossword.vertical_mode = vertical;
+                  }
                }
             }
 
