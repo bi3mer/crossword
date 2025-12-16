@@ -42,4 +42,19 @@ static inline bool in_between_i32(i32 min, i32 b, i32 max)
     return min <= b && b <= max;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// mod
+///////////////////////////////////////////////////////////////////////////////
+static inline i16 mod_i16(i16 number, i16 divisor)
+{
+    assert(divisor > 0);
+    i16 res = number % divisor;
+    if (res < 0)
+    {
+        res += divisor;
+    }
+
+    return res;
+}
+
 #endif
