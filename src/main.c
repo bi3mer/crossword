@@ -481,9 +481,6 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
             else if (!vertical && e->dir_x == 1)
                 continue;
 
-            // TODO: check that start and end of word to make sure it doesn't
-            // connect with anything
-
             for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
             {
                 C i16 start_x = e->start_x + e->dir_x * entry_offset;
@@ -494,8 +491,32 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
                 {
                     x = start_x - dir_x * word_offset;
                     y = start_y - dir_y * word_offset;
-                    if (x < 0 || y < 0)
+
+                    // bounds checks
+                    if (x < 0 || y < 0 || x >= CW_DIM || y >= CW_DIM)
                         break;
+
+                    // Before checking every character, check that the start and end
+                    // locations are valid locations to place the word
+                    if (vertical)
+                    {
+                        C i16 end_y = y + (i16)w->word_length - 1;
+                        if (y - 1 < 0 || cw->cells[y - 1][x].correct_letter != 0)
+                            continue;
+
+                        if (end_y + 1 >= CW_DIM ||
+                            cw->cells[end_y + 1][x].correct_letter != 0)
+                            continue;
+                    }
+                    else
+                    {
+                        C i16 end_x = x + (i16)w->word_length - 1;
+                        if (x - 1 < 0 || cw->cells[y][x - 1].correct_letter != 0)
+                            continue;
+                        if (end_x + 1 >= CW_DIM ||
+                            cw->cells[y][end_x + 1].correct_letter != 0)
+                            continue;
+                    }
 
                     bool valid = true;
                     for (size_t word_index = 0; word_index < w->word_length; ++word_index)
