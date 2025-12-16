@@ -207,8 +207,11 @@ int main(void)
                     bool complete = false;
                     if (crossword.vertical_mode)
                     {
-                        complete =
-                            cw_validate_entry(&crossword, selected_cell->vertical_entry);
+                        if (!selected_cell->vertical_entry->complete)
+                        {
+                            complete = cw_validate_entry(&crossword,
+                                                         selected_cell->vertical_entry);
+                        }
 
                         C i16 next_y = selected_cell->y + 1;
                         if (next_y < CW_DIM &&
@@ -219,8 +222,11 @@ int main(void)
                     }
                     else
                     {
-                        complete = cw_validate_entry(&crossword,
-                                                     selected_cell->horizontal_entry);
+                        if (!selected_cell->horizontal_entry->complete)
+                        {
+                            complete = cw_validate_entry(&crossword,
+                                                         selected_cell->horizontal_entry);
+                        }
 
                         C i16 next_x = selected_cell->x + 1;
                         if (next_x < CW_DIM &&
@@ -416,6 +422,9 @@ int main(void)
 
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
+    // this funciton should be called if the entry is already validated
+    assert(!ce->complete);
+
     i16 x = ce->start_x;
     i16 y = ce->start_y;
     bool valid = true;
