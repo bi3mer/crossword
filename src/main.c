@@ -197,78 +197,73 @@ int main(void)
             int key = GetKeyPressed();
             while (key != 0)
             {
-                if (selected_cell->locked == false)
+                if (isalpha(key))
                 {
-                    if (isalpha(key))
+                    if (!selected_cell->locked)
                     {
                         selected_cell->user_letter = (char)toupper(key);
+                    }
 
-                        if (crossword.vertical_mode)
+                    if (crossword.vertical_mode)
+                    {
+                        // TODO: do something if valid (function return
+                        // bool?)
+                        cw_validate_entry(&crossword, selected_cell->vertical_entry);
+
+                        C i16 next_y = selected_cell->y + 1;
+                        if (next_y < CW_DIM &&
+                            crossword.cells[next_y][selected_cell->x].correct_letter != 0)
                         {
-                            // TODO: do something if valid (function return
-                            // bool?)
-                            cw_validate_entry(&crossword, selected_cell->vertical_entry);
-
-                            C i16 next_y = selected_cell->y + 1;
-                            if (next_y < CW_DIM &&
-                                crossword.cells[next_y][selected_cell->x]
-                                        .correct_letter != 0)
-                            {
-                                selected_cell =
-                                    &crossword.cells[next_y][selected_cell->x];
-                            }
+                            selected_cell = &crossword.cells[next_y][selected_cell->x];
                         }
-                        else
-                        {
-                            // TODO: do something if valid (function return
-                            // bool?)
-                            cw_validate_entry(&crossword,
-                                              selected_cell->horizontal_entry);
+                    }
+                    else
+                    {
+                        // TODO: do something if valid (function return
+                        // bool?)
+                        cw_validate_entry(&crossword, selected_cell->horizontal_entry);
 
-                            C i16 next_x = selected_cell->x + 1;
-                            if (next_x < CW_DIM &&
-                                crossword.cells[selected_cell->y][next_x]
-                                        .correct_letter != 0)
+                        C i16 next_x = selected_cell->x + 1;
+                        if (next_x < CW_DIM &&
+                            crossword.cells[selected_cell->y][next_x].correct_letter != 0)
+                        {
+                            selected_cell = &crossword.cells[selected_cell->y][next_x];
+                        }
+                    }
+                }
+                else if (key == KEY_BACKSPACE)
+                {
+                    if (!selected_cell->locked)
+                    {
+                        selected_cell->user_letter = ' ';
+                    }
+
+                    if (crossword.vertical_mode)
+                    {
+                        C i16 next_y = selected_cell->y - 1;
+                        if (next_y >= 0)
+                        {
+                            Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
+                            if (next_cell->correct_letter != 0)
                             {
-                                selected_cell =
-                                    &crossword.cells[selected_cell->y][next_x];
+                                selected_cell = next_cell;
                             }
                         }
                     }
-                    else if (key == KEY_BACKSPACE)
+                    else
                     {
-                        selected_cell->user_letter = ' ';
-
-                        if (crossword.vertical_mode)
+                        C i16 next_x = selected_cell->x - 1;
+                        if (next_x >= 0)
                         {
-                            C i16 next_y = selected_cell->y - 1;
-                            if (next_y >= 0)
+                            Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
+                            if (next_cell->correct_letter != 0)
                             {
-                                Cell *next_cell =
-                                    &crossword.cells[next_y][selected_cell->x];
-                                if (next_cell->correct_letter != 0)
-                                {
-                                    selected_cell = next_cell;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            C i16 next_x = selected_cell->x - 1;
-                            if (next_x >= 0)
-                            {
-                                Cell *next_cell =
-                                    &crossword.cells[selected_cell->y][next_x];
-                                if (next_cell->correct_letter != 0)
-                                {
-                                    selected_cell = next_cell;
-                                }
+                                selected_cell = next_cell;
                             }
                         }
                     }
                 }
-
-                if (key == KEY_TAB)
+                else if (key == KEY_TAB)
                 {
                     C Crossword_Entry *ce = crossword.vertical_mode
                                                 ? selected_cell->vertical_entry
@@ -295,27 +290,26 @@ int main(void)
                 }
                 else
                 {
-                    // arrow-based movement and vi-based movement for locked
-                    // cells
+                    // arrow-based movement
                     i16 dir_x = 0, dir_y = 0;
                     bool vertical = crossword.vertical_mode;
 
-                    if (key == KEY_UP || (key == KEY_K && selected_cell->locked))
+                    if (key == KEY_UP)
                     {
                         dir_y = -1;
                         vertical = true;
                     }
-                    else if (key == KEY_DOWN || (key == KEY_J && selected_cell->locked))
+                    else if (key == KEY_DOWN)
                     {
                         dir_y = 1;
                         vertical = true;
                     }
-                    else if (key == KEY_RIGHT || (key == KEY_L && selected_cell->locked))
+                    else if (key == KEY_RIGHT)
                     {
                         dir_x = 1;
                         vertical = false;
                     }
-                    else if (key == KEY_LEFT || (key == KEY_H && selected_cell->locked))
+                    else if (key == KEY_LEFT)
                     {
                         dir_x = -1;
                         vertical = false;
