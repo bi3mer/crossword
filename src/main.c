@@ -153,14 +153,33 @@ int main(void)
 
                if (next_cell == selected_cell)
                {
-                  crossword.vertical_mode =
-                      crossword.vertical_mode
-                          ? selected_cell->horizontal_entry != NULL
-                          : selected_cell->vertical_entry != NULL;
+                  if (crossword.vertical_mode)
+                  {
+                     if (selected_cell->horizontal_entry != NULL)
+                     {
+                        crossword.vertical_mode = false;
+                     }
+                  }
+                  else if (selected_cell->vertical_entry != NULL)
+                  {
+                     crossword.vertical_mode = true;
+                  }
                }
                else
                {
                   selected_cell = next_cell;
+
+                  if (crossword.vertical_mode)
+                  {
+                     if (selected_cell->vertical_entry == NULL)
+                     {
+                        crossword.vertical_mode = false;
+                     }
+                  }
+                  else if (selected_cell->horizontal_entry == NULL)
+                  {
+                     crossword.vertical_mode = true;
+                  }
                }
             }
          }
