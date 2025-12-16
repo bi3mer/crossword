@@ -75,14 +75,13 @@ int main(void)
    SetWindowState(FLAG_WINDOW_RESIZABLE);
    SetTargetFPS(60);
    SetRandomSeed(time(NULL));
-
-   // TODO: only update on event?
+   // TODO: EnableEventWaiting()?
 
    Crossword crossword = {0};
 
    cw_place_word(&crossword, words + 3, false);
    cw_place_word(&crossword, words + 100, true);
-   // cw_place_word(&crossword, words + 20);
+   cw_place_word(&crossword, words + 200, false);
 
    Cell *selected_cell =
        &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
@@ -261,6 +260,20 @@ int main(void)
                         }
                      }
                   }
+               }
+               else if (key == KEY_TAB)
+               {
+                  C Crossword_Entry *ce = crossword.vertical_mode
+                                              ? selected_cell->vertical_entry
+                                              : selected_cell->horizontal_entry;
+                  C size_t offset =
+                      (ce - crossword.entries + 1) % crossword.num_entries;
+
+                  C Crossword_Entry *next = (crossword.entries + offset);
+                  selected_cell =
+                      &crossword.cells[next->start_y][next->start_x];
+
+                  crossword.vertical_mode = next->dir_y == 1;
                }
             }
 
