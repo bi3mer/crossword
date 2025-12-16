@@ -614,11 +614,14 @@ bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
     for (size_t i = 0; i < w->word_length; ++i)
     {
         c = &cw->cells[y][x];
-        c->x = x;
-        c->y = y;
-        c->user_letter = ' ';
-        c->correct_letter = (char)toupper(w->word[i]);
-        c->locked = false;
+        if (c->correct_letter == 0)
+        {
+            c->x = x;
+            c->y = y;
+            c->user_letter = ' ';
+            c->correct_letter = (char)toupper(w->word[i]);
+            c->locked = false;
+        }
 
         if (vertical)
         {
