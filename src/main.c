@@ -62,7 +62,7 @@ typedef struct
     bool vertical_mode;
 } Crossword;
 
-static void cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
+static bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
 static bool cw_place_word(Crossword *cw, C Word *w, C bool vertical);
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -204,11 +204,11 @@ int main(void)
                         selected_cell->user_letter = (char)toupper(key);
                     }
 
+                    bool complete = false;
                     if (crossword.vertical_mode)
                     {
-                        // TODO: do something if valid (function return
-                        // bool?)
-                        cw_validate_entry(&crossword, selected_cell->vertical_entry);
+                        complete =
+                            cw_validate_entry(&crossword, selected_cell->vertical_entry);
 
                         C i16 next_y = selected_cell->y + 1;
                         if (next_y < CW_DIM &&
@@ -219,9 +219,8 @@ int main(void)
                     }
                     else
                     {
-                        // TODO: do something if valid (function return
-                        // bool?)
-                        cw_validate_entry(&crossword, selected_cell->horizontal_entry);
+                        complete = cw_validate_entry(&crossword,
+                                                     selected_cell->horizontal_entry);
 
                         C i16 next_x = selected_cell->x + 1;
                         if (next_x < CW_DIM &&
@@ -229,6 +228,12 @@ int main(void)
                         {
                             selected_cell = &crossword.cells[selected_cell->y][next_x];
                         }
+                    }
+
+                    if (complete)
+                    {
+                        cw_place_word(&crossword, &words[GetRandomValue(500, 3000)],
+                                      GetRandomValue(0, 1));
                     }
                 }
                 else if (key == KEY_BACKSPACE)
@@ -409,7 +414,7 @@ int main(void)
     return 0;
 }
 
-void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
+bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
     i16 x = ce->start_x;
     i16 y = ce->start_y;
@@ -442,6 +447,8 @@ void cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
             y += ce->dir_y;
         }
     }
+
+    return valid;
 }
 
 // returns true if there was an error with placement, otherwise false
