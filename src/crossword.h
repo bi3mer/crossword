@@ -37,8 +37,8 @@ typedef struct
     double surprisal;
 } Crossword;
 
-extern u8 cw_get_words(const Crossword *cw, const Word *options[10]);
 extern bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
 extern bool cw_place_word(Crossword *cw, const Word *w, const bool vertical);
+extern bool cw_add_word(Crossword *cw);
 
 #endif

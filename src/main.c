@@ -208,45 +208,7 @@ int main(void)
 
                     if (complete)
                     {
-                        const Word *options[10];
-                        bool placed_word = false;
-                        do
-                        {
-                            const u8 size = cw_get_words(&crossword, options);
-                            const u8 offset = f_rand_u8(0, size);
-                            u8 i;
-
-                            for (i = 0; i < size; ++i)
-                            {
-                                bool vertical = GetRandomValue(0, 1);
-                                if (!cw_place_word(&crossword,
-                                                   options[(i + offset) % size],
-                                                   vertical))
-                                {
-                                    placed_word = true;
-                                    break;
-                                }
-
-                                if (!cw_place_word(&crossword,
-                                                   options[(i + offset) % size],
-                                                   !vertical))
-                                {
-                                    placed_word = true;
-                                    break;
-                                }
-                            }
-
-                            if (placed_word)
-                            {
-                                crossword.surprisal =
-                                    options[(i + offset) % size]->surprisal + 0.01;
-                            }
-                            else
-                            {
-                                crossword.surprisal -= 1.0;
-                            }
-
-                        } while (!placed_word);
+                        cw_add_word(&crossword);
                     }
                 }
                 else if (key == KEY_BACKSPACE)

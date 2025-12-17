@@ -7,23 +7,6 @@
 #include <ctype.h>
 #include <stdio.h>
 
-// optimization: store index  of last word to reduce search time
-u8 cw_get_words(const Crossword *cw, const Word *options[10])
-{
-    u8 index = 0;
-    for (size_t i = 0; i < words_count && index < 10; ++i)
-    {
-        const Word *w = &words[i];
-        if (w->surprisal > cw->surprisal)
-        {
-            options[index] = w;
-            ++index;
-        }
-    }
-
-    return index;
-}
-
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
     // this funciton should be called if the entry is already validated
@@ -251,4 +234,44 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
     ++cw->num_entries;
     return false;
+}
+
+// optimization: store index  of last word to reduce search time
+bool cw_add_word(Crossword *cw)
+{
+    bool placed_word = false;
+    for (size_t i = 0; i < words_count; ++i)
+    {
+        const Word *w = &words[i];
+
+        // ignore lower surprisal words
+        if (w->surprisal < cw->surprisal)
+        {
+            continue;
+        }
+
+        // random chance to skip words
+        if (f_rand_d(0, 1) < 0.4)
+        {
+            continue;
+        }
+
+        // try to palce the word
+        bool vertical = GetRandomValue(0, 1);
+        if (!cw_place_word(cw, w, vertical))
+        {
+            placed_word = true;
+            cw->surprisal = w->surprisal + 0.01;
+            break;
+        }
+
+        if (!cw_place_word(cw, w, !vertical))
+        {
+            placed_word = true;
+            cw->surprisal = w->surprisal + 0.01;
+            break;
+        }
+    }
+
+    return placed_word;
 }
