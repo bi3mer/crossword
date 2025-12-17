@@ -7,11 +7,13 @@
 
 #define ADJUST_IMPLEMENTATION
 #include "adjust.h"
+#include "exam.h"
+#include "foundation.h"
+
 #include "raylib.h"
 
 #include "block_centered_text.h"
 #include "clues.h"
-#include "common.h"
 
 // One gripe I have is that the line `C size_t i` takes 14 characters: a lot of
 // typing. So, I'm going to try and make it a bit easier on myself by just
@@ -148,8 +150,8 @@ int main(void)
                 C i16 cell_x = (i16)(mouse_position.x / g_cell_width);
                 C i16 cell_y = (i16)(mouse_position.y / g_cell_width);
 
-                if (in_between_i16(0, cell_x, CW_DIM - 1) &&
-                    in_between_i16(0, cell_y, CW_DIM - 1) &&
+                if (f_in_between_i16(0, cell_x, CW_DIM - 1) &&
+                    f_in_between_i16(0, cell_y, CW_DIM - 1) &&
                     crossword.cells[cell_y][cell_x].correct_letter != 0)
                 {
                     Cell *next_cell = &crossword.cells[cell_y][cell_x];
@@ -290,7 +292,8 @@ int main(void)
                         ++index;
                     }
 
-                    C size_t offset = (size_t)mod_i16(index, (i16)crossword.num_entries);
+                    C size_t offset =
+                        (size_t)f_modulus_i16(index, (i16)crossword.num_entries);
 
                     C Crossword_Entry *next = (crossword.entries + offset);
                     selected_cell = &crossword.cells[next->start_y][next->start_x];
@@ -423,7 +426,7 @@ int main(void)
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
     // this funciton should be called if the entry is already validated
-    assert(!ce->complete);
+    e_assert(!ce->complete);
 
     i16 x = ce->start_x;
     i16 y = ce->start_y;
@@ -463,7 +466,7 @@ bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 // returns true if there was an error with placement, otherwise false
 bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
 {
-    assert(cw->num_entries <= CW_MAX_ENTRIES);
+    e_assert(cw->num_entries <= CW_MAX_ENTRIES);
 
     bool valid_placement_found = false;
     i16 x, y;

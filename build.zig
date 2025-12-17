@@ -149,24 +149,16 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addIncludePath(raylib_dep.path("src"));
 
-    if (b.build_root.handle.openDir("src", .{ .iterate = true })) |dir| {
-        const is_release = optimize != .Debug;
+    const is_release = optimize != .Debug;
+    const c_flags: []const []const u8 = if (is_release)
+        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
+    else
+        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic" };
 
-        var d = dir;
-        defer d.close();
-        var iter = d.iterate();
-        while (iter.next() catch null) |entry| {
-            if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".c")) {
-                exe.root_module.addCSourceFile(.{
-                    .file = b.path(b.fmt("src/{s}", .{entry.name})),
-                    .flags = if (is_release)
-                        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
-                    else
-                        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic" },
-                });
-            }
-        }
-    } else |_| {}
+    includeDir(b, exe.root_module, "deps/staunch/Glow", c_flags);
+    includeDir(b, exe.root_module, "deps/staunch/Exam", c_flags);
+    includeDir(b, exe.root_module, "deps/staunch/Foundation", c_flags);
+    includeDir(b, exe.root_module, "src", c_flags);
 
     exe.root_module.linkLibrary(raylib_dep.artifact("raylib"));
 
@@ -176,4 +168,29 @@ pub fn build(b: *std.Build) void {
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| run_cmd.addArgs(args);
     b.step("run", "Run the game").dependOn(&run_cmd.step);
+}
+
+fn includeDir(
+    b: *std.Build,
+    module: *std.Build.Module,
+    dir_path: []const u8,
+    c_flags: []const []const u8,
+) void {
+    module.addIncludePath(b.path(dir_path));
+
+    var dir = b.build_root.handle.openDir(dir_path, .{ .iterate = true }) catch {
+        std.debug.print("failed to open directory: {s}\n", .{dir_path});
+        @panic("build failed");
+    };
+    defer dir.close();
+
+    var iter = dir.iterate();
+    while (iter.next() catch null) |entry| {
+        if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".c")) {
+            module.addCSourceFile(.{
+                .file = b.path(b.fmt("{s}/{s}", .{ dir_path, entry.name })),
+                .flags = c_flags,
+            });
+        }
+    }
 }
