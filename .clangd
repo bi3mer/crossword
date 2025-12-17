@@ -2,6 +2,9 @@ CompileFlags:
   Add:
     - -std=c99
     - -I../deps/raylib/src
+    - -I../deps/staunch/Glow
+    - -I../deps/staunch/Exam
+    - -I../deps/staunch/Foundation
     - -pedantic-errors
     - -Wall
     - -Wextra
