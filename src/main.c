@@ -14,6 +14,7 @@
 
 #include "block_centered_text.h"
 #include "clues.h"
+#include "crossword.h"
 
 // One gripe I have is that the line `C size_t i` takes 14 characters: a lot of
 // typing. So, I'm going to try and make it a bit easier on myself by just
@@ -29,43 +30,9 @@ ADJUST_GLOBAL_CONST_INT(g_cell_height, 48);
 ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
 ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
 
-#define CW_DIM 50
-#define CW_MAX_ENTRIES 50
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // Structures for defining the crossword grid that expands as the player plays
 // the game.
-typedef struct
-{
-    char *word;
-    char *clue_str;
-    bool complete;
-    size_t word_length;
-    i16 start_x, start_y;
-    i16 dir_x, dir_y;
-} Crossword_Entry;
-
-typedef struct
-{
-    i16 x, y;
-    char user_letter;
-    char correct_letter;
-    bool locked;
-    Crossword_Entry *horizontal_entry;
-    Crossword_Entry *vertical_entry;
-} Cell;
-
-typedef struct
-{
-    Crossword_Entry entries[CW_MAX_ENTRIES];
-    i16 min_x, max_x, min_y, max_y;
-    size_t num_entries;
-    Cell cells[CW_DIM][CW_DIM];
-    bool vertical_mode;
-} Crossword;
-
-static bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
-static bool cw_place_word(Crossword *cw, C Word *w, C bool vertical);
 
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -80,15 +47,16 @@ int main(void)
     // TODO: EnableEventWaiting()?
 
     Crossword crossword = {0};
+    crossword.surprisal = 2.0;
 
     cw_place_word(&crossword, words + 3, false);
     cw_place_word(&crossword, words + 100, true);
-    cw_place_word(&crossword, words + 200, false);
-    cw_place_word(&crossword, words + 300, false);
-    cw_place_word(&crossword, words + 400, true);
-    cw_place_word(&crossword, words + 500, false);
-    cw_place_word(&crossword, words + 600, true);
-    cw_place_word(&crossword, words + 700, false);
+    // cw_place_word(&crossword, words + 200, false);
+    // cw_place_word(&crossword, words + 300, false);
+    // cw_place_word(&crossword, words + 400, true);
+    // cw_place_word(&crossword, words + 500, false);
+    // cw_place_word(&crossword, words + 600, true);
+    // cw_place_word(&crossword, words + 700, false);
 
     Cell *selected_cell =
         &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
@@ -240,8 +208,45 @@ int main(void)
 
                     if (complete)
                     {
-                        cw_place_word(&crossword, &words[GetRandomValue(500, 3000)],
-                                      GetRandomValue(0, 1));
+                        const Word *options[10];
+                        bool placed_word = false;
+                        do
+                        {
+                            const u8 size = cw_get_words(&crossword, options);
+                            const u8 offset = f_rand_u8(0, size);
+                            u8 i;
+
+                            for (i = 0; i < size; ++i)
+                            {
+                                bool vertical = GetRandomValue(0, 1);
+                                if (!cw_place_word(&crossword,
+                                                   options[(i + offset) % size],
+                                                   vertical))
+                                {
+                                    placed_word = true;
+                                    break;
+                                }
+
+                                if (!cw_place_word(&crossword,
+                                                   options[(i + offset) % size],
+                                                   !vertical))
+                                {
+                                    placed_word = true;
+                                    break;
+                                }
+                            }
+
+                            if (placed_word)
+                            {
+                                crossword.surprisal =
+                                    options[(i + offset) % size]->surprisal + 0.01;
+                            }
+                            else
+                            {
+                                crossword.surprisal -= 1.0;
+                            }
+
+                        } while (!placed_word);
                     }
                 }
                 else if (key == KEY_BACKSPACE)
@@ -421,233 +426,4 @@ int main(void)
     CloseWindow();
 
     return 0;
-}
-
-bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
-{
-    // this funciton should be called if the entry is already validated
-    e_assert(!ce->complete);
-
-    i16 x = ce->start_x;
-    i16 y = ce->start_y;
-    bool valid = true;
-
-    while (cw->cells[y][x].correct_letter != 0)
-    {
-        C Cell *c = &cw->cells[y][x];
-        if (c->user_letter != c->correct_letter)
-        {
-            valid = false;
-            break;
-        }
-
-        x += ce->dir_x;
-        y += ce->dir_y;
-    }
-
-    if (valid)
-    {
-        ce->complete = true;
-        x = ce->start_x;
-        y = ce->start_y;
-
-        while (cw->cells[y][x].correct_letter != 0)
-        {
-            cw->cells[y][x].locked = true;
-
-            x += ce->dir_x;
-            y += ce->dir_y;
-        }
-    }
-
-    return valid;
-}
-
-// returns true if there was an error with placement, otherwise false
-bool cw_place_word(Crossword *cw, C Word *w, C bool vertical)
-{
-    e_assert(cw->num_entries <= CW_MAX_ENTRIES);
-
-    bool valid_placement_found = false;
-    i16 x, y;
-    if (cw->num_entries == 0)
-    {
-        // if there are no entries, there is no point looking for an
-        // interesection, and instead we'll just place the word in the center of
-        // the puzzle
-        x = CW_DIM / 2;
-        y = CW_DIM / 2;
-        valid_placement_found = true;
-    }
-    else
-    {
-        C size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
-        C i16 dir_x = vertical ? 0 : 1;
-        C i16 dir_y = vertical ? 1 : 0;
-
-        for (size_t i = 0; i < cw->num_entries; ++i)
-        {
-            C size_t entry_index = (i + offset) % cw->num_entries;
-            C Crossword_Entry *e = cw->entries + entry_index;
-
-            if (vertical && e->dir_y == 1)
-                continue;
-            else if (!vertical && e->dir_x == 1)
-                continue;
-
-            for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
-            {
-                C i16 start_x = e->start_x + e->dir_x * entry_offset;
-                C i16 start_y = e->start_y + e->dir_y * entry_offset;
-
-                for (i16 word_offset = 0; word_offset < (i16)w->word_length;
-                     ++word_offset)
-                {
-                    x = start_x - dir_x * word_offset;
-                    y = start_y - dir_y * word_offset;
-
-                    // bounds checks
-                    if (x < 0 || y < 0 || x >= CW_DIM || y >= CW_DIM)
-                        break;
-
-                    // Before checking every character, check that the start and end
-                    // locations are valid locations to place the word
-                    if (vertical)
-                    {
-                        C i16 end_y = y + (i16)w->word_length - 1;
-                        if (y - 1 < 0 || cw->cells[y - 1][x].correct_letter != 0)
-                            continue;
-
-                        if (end_y + 1 >= CW_DIM ||
-                            cw->cells[end_y + 1][x].correct_letter != 0)
-                            continue;
-                    }
-                    else
-                    {
-                        C i16 end_x = x + (i16)w->word_length - 1;
-                        if (x - 1 < 0 || cw->cells[y][x - 1].correct_letter != 0)
-                            continue;
-                        if (end_x + 1 >= CW_DIM ||
-                            cw->cells[y][end_x + 1].correct_letter != 0)
-                            continue;
-                    }
-
-                    bool valid = true;
-                    for (size_t word_index = 0; word_index < w->word_length; ++word_index)
-                    {
-                        C char correct_letter = cw->cells[y][x].correct_letter;
-                        if (correct_letter == 0)
-                        {
-                            if (vertical)
-                            {
-                                if (x <= 0 || cw->cells[y][x - 1].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-
-                                if (x >= CW_DIM - 1 ||
-                                    cw->cells[y][x + 1].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                if (y <= 0 || cw->cells[y - 1][x].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-
-                                if (y >= CW_DIM - 1 ||
-                                    cw->cells[y + 1][x].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-                        }
-                        else if (correct_letter != w->word[word_index])
-                        {
-                            valid = false;
-                            break;
-                        }
-
-                        x += dir_x;
-                        y += dir_y;
-                        if (x >= CW_DIM || y >= CW_DIM)
-                        {
-                            valid = false;
-                            break;
-                        }
-                    }
-
-                    if (valid)
-                    {
-                        x = start_x - dir_x * word_offset;
-                        y = start_y - dir_y * word_offset;
-                        valid_placement_found = true;
-                        break;
-                    }
-                }
-
-                if (valid_placement_found)
-                    break;
-            }
-
-            if (valid_placement_found)
-                break;
-        }
-    }
-
-    if (!valid_placement_found)
-    {
-        printf("Failed to find placement for: %s\n", w->word);
-        return true; // unable to place word (meaning, a new word is needed)
-    }
-
-    printf("Found placement for: %s\n", w->word);
-
-    Crossword_Entry *e = cw->entries + cw->num_entries;
-    e->word = w->word;
-    e->start_x = x;
-    e->start_y = y;
-    e->clue_str = w->clues[GetRandomValue(0, 2)];
-    e->word_length = w->word_length;
-
-    C i16 dir_x = !vertical;
-    C i16 dir_y = vertical;
-    e->dir_x = dir_x;
-    e->dir_y = dir_y;
-
-    Cell *c;
-    for (size_t i = 0; i < w->word_length; ++i)
-    {
-        c = &cw->cells[y][x];
-        if (c->correct_letter == 0)
-        {
-            c->x = x;
-            c->y = y;
-            c->user_letter = ' ';
-            c->correct_letter = (char)toupper(w->word[i]);
-            c->locked = false;
-        }
-
-        if (vertical)
-        {
-            c->vertical_entry = e;
-        }
-        else
-        {
-            c->horizontal_entry = e;
-        }
-
-        x += dir_x;
-        y += dir_y;
-    }
-
-    ++cw->num_entries;
-    return false;
 }
