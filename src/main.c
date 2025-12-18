@@ -7,13 +7,11 @@
 
 #define ADJUST_IMPLEMENTATION
 #include "adjust.h"
-#include "exam.h"
 #include "foundation.h"
 
 #include "raylib.h"
 
 #include "block_centered_text.h"
-#include "clues.h"
 #include "crossword.h"
 
 // One gripe I have is that the line `C size_t i` takes 14 characters: a lot of
