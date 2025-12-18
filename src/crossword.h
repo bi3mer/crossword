@@ -31,10 +31,10 @@ typedef struct
 {
     Crossword_Entry entries[CW_MAX_ENTRIES];
     i16 min_x, max_x, min_y, max_y;
-    size_t num_entries;
+    size_t num_entries, clue_index;
     Cell cells[CW_DIM][CW_DIM];
+    char *selected_words[MAX_WORD_SIZE];
     bool vertical_mode;
-    double surprisal;
 } Crossword;
 
 extern bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce);

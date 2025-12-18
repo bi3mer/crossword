@@ -42,10 +42,11 @@ int main(void)
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
     SetRandomSeed(time(NULL));
+
+    f_rand_init(time(NULL));
     // TODO: EnableEventWaiting()?
 
     Crossword crossword = {0};
-    crossword.surprisal = 2.0;
 
     // cw_place_word(&crossword, words + 3, false);
     // cw_place_word(&crossword, words + 100, true);
@@ -57,6 +58,7 @@ int main(void)
     // cw_place_word(&crossword, words + 700, false);
     // cw_place_word(&crossword, words + 48, false);
     // cw_place_word(&crossword, words + 70, true);
+    cw_place_word(&crossword, words + f_rand_u16(20000, 30000), false);
     cw_add_word(&crossword);
     cw_add_word(&crossword);
 

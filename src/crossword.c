@@ -266,37 +266,40 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 bool cw_add_word(Crossword *cw)
 {
     bool placed_word = false;
-    for (size_t i = 0; i < words_count; ++i)
-    {
-        const Word *w = &words[i];
+    double probability_of_skip = 0.2;
 
-        // ignore lower surprisal words
-        if (w->surprisal < cw->surprisal)
-        {
-            continue;
-        }
+    // for (; cw->clue_index < words_count; ++cw->clue_index)
+    for (; cw->clue_index < 100; ++cw->clue_index)
+    {
+        const Word *w = &words[cw->clue_index];
 
         // random chance to skip words
-        if (f_rand_d(0, 1) < 0.4)
+        if (f_rand_d(0, 1) < probability_of_skip)
         {
+            probability_of_skip -= 0.02;
             continue;
         }
 
-        // try to palce the word
+        // try to place the word
         bool vertical = GetRandomValue(0, 1);
         if (!cw_place_word(cw, w, vertical))
         {
             placed_word = true;
-            cw->surprisal = w->surprisal + 0.01;
+            ++cw->clue_index;
             break;
         }
 
         if (!cw_place_word(cw, w, !vertical))
         {
             placed_word = true;
-            cw->surprisal = w->surprisal + 0.01;
+            ++cw->clue_index;
             break;
         }
+    }
+
+    if (cw->clue_index == words_count)
+    {
+        cw->clue_index = words_count / 2;
     }
 
     return placed_word;
