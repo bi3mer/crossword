@@ -41,7 +41,6 @@ int main(void)
     InitWindow(texture_width, texture_height, "Crossword");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
-    SetRandomSeed(time(NULL));
 
     f_rand_init(time(NULL));
     // TODO: EnableEventWaiting()?

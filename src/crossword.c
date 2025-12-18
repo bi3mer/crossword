@@ -65,7 +65,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     }
     else
     {
-        const size_t offset = (size_t)GetRandomValue(0, (int)cw->num_entries - 1);
+        const size_t offset = (size_t)f_rand_u16(0, (u16)cw->num_entries - 1);
         const i16 dir_x = vertical ? 0 : 1;
         const i16 dir_y = vertical ? 1 : 0;
 
@@ -224,7 +224,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     e->word = w->word;
     e->start_x = x;
     e->start_y = y;
-    e->clue_str = w->clues[GetRandomValue(0, 2)];
+    e->clue_str = w->clues[f_rand_u8(0, 2)];
     e->word_length = w->word_length;
 
     const i16 dir_x = !vertical;
@@ -281,7 +281,7 @@ bool cw_add_word(Crossword *cw)
         }
 
         // try to place the word
-        bool vertical = GetRandomValue(0, 1);
+        bool vertical = f_rand_bool();
         if (!cw_place_word(cw, w, vertical))
         {
             placed_word = true;
