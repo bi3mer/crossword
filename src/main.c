@@ -49,14 +49,18 @@ int main(void)
     Crossword crossword = {0};
     crossword.surprisal = 2.0;
 
-    cw_place_word(&crossword, words + 3, false);
-    cw_place_word(&crossword, words + 100, true);
+    // cw_place_word(&crossword, words + 3, false);
+    // cw_place_word(&crossword, words + 100, true);
     // cw_place_word(&crossword, words + 200, false);
     // cw_place_word(&crossword, words + 300, false);
     // cw_place_word(&crossword, words + 400, true);
     // cw_place_word(&crossword, words + 500, false);
     // cw_place_word(&crossword, words + 600, true);
     // cw_place_word(&crossword, words + 700, false);
+    // cw_place_word(&crossword, words + 48, false);
+    // cw_place_word(&crossword, words + 70, true);
+    cw_add_word(&crossword);
+    cw_add_word(&crossword);
 
     Cell *selected_cell =
         &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];

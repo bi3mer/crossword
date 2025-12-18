@@ -119,7 +119,9 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                     bool valid = true;
                     for (size_t word_index = 0; word_index < w->word_length; ++word_index)
                     {
-                        const char correct_letter = cw->cells[y][x].correct_letter;
+                        const Cell *c = &cw->cells[y][x];
+                        const char correct_letter = c->correct_letter;
+
                         if (correct_letter == 0)
                         {
                             if (vertical)
@@ -155,6 +157,30 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                         }
                         else if (correct_letter != w->word[word_index])
                         {
+                            valid = false;
+                            break;
+                        }
+                        else if ((vertical && c->vertical_entry != NULL) ||
+                                 (!vertical && c->horizontal_entry != NULL))
+                        {
+                            // Imagine this is our current state:
+                            //
+                            //               T
+                            //             M E   T
+                            //               N   O
+                            //               T O P
+                            //
+                            // Ignore te double use of top, and instead imagine
+                            // what would happen if we tried to place "DEPARTMENT"
+                            // We would get:
+                            //
+                            //               T
+                            // D E P A R T M E N T
+                            //               N   O
+                            //               T O P
+                            //
+                            // Overriding "ME" and that is why this if exists.
+
                             valid = false;
                             break;
                         }

@@ -4,8 +4,8 @@
 #include "clues.h"
 #include "foundation.h"
 
-#define CW_DIM 50
-#define CW_MAX_ENTRIES 50
+#define CW_DIM 100
+#define CW_MAX_ENTRIES 20
 
 typedef struct
 {
