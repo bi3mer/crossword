@@ -33,7 +33,6 @@ typedef struct
     i16 min_x, max_x, min_y, max_y;
     size_t num_entries, clue_index;
     Cell cells[CW_DIM][CW_DIM];
-    char *selected_words[MAX_WORD_SIZE];
     bool vertical_mode;
 } Crossword;
 

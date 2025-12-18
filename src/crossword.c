@@ -3,9 +3,9 @@
 #include "clues.h"
 #include "exam.h"
 #include "foundation.h"
-#include "raylib.h"
 #include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
@@ -69,16 +69,18 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
         const i16 dir_x = vertical ? 0 : 1;
         const i16 dir_y = vertical ? 1 : 0;
 
-        for (size_t i = 0; i < cw->num_entries; ++i)
+        for (u8 i = 0; i < cw->num_entries; ++i)
         {
             const size_t entry_index = (i + offset) % cw->num_entries;
             const Crossword_Entry *e = cw->entries + entry_index;
 
+            // Don't look for intersections for same directions
             if (vertical && e->dir_y == 1)
                 continue;
             else if (!vertical && e->dir_x == 1)
                 continue;
 
+            // Try to place the word
             for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
             {
                 const i16 start_x = e->start_x + e->dir_x * entry_offset;
@@ -265,6 +267,8 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 // optimization: store index  of last word to reduce search time
 bool cw_add_word(Crossword *cw)
 {
+    e_assert(cw->num_entries <= CW_MAX_ENTRIES);
+
     bool placed_word = false;
     double probability_of_skip = 0.2;
 
@@ -273,14 +277,30 @@ bool cw_add_word(Crossword *cw)
     {
         const Word *w = &words[cw->clue_index];
 
-        // random chance to skip words
+        // Make sure the word has not been used before
+        bool word_already_used = false;
+        for (u8 i = 0; i < cw->num_entries; ++i)
+        {
+            if (strcmp(cw->entries[i].word, w->word) == 0)
+            {
+                word_already_used = true;
+                break;
+            }
+        }
+
+        if (word_already_used)
+        {
+            continue;
+        }
+
+        // Random chance to skip words
         if (f_rand_d(0, 1) < probability_of_skip)
         {
             probability_of_skip -= 0.02;
             continue;
         }
 
-        // try to place the word
+        // Try to place the word
         bool vertical = f_rand_bool();
         if (!cw_place_word(cw, w, vertical))
         {
