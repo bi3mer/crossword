@@ -57,7 +57,7 @@ int main(void)
     // cw_place_word(&crossword, words + 700, false);
     // cw_place_word(&crossword, words + 48, false);
     // cw_place_word(&crossword, words + 70, true);
-    cw_place_word(&crossword, words + f_rand_u16(20000, 30000), false);
+    // cw_place_word(&crossword, words + f_rand_u16(20000, 30000), false);
     cw_add_word(&crossword);
     cw_add_word(&crossword);
 

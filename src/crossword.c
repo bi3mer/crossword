@@ -69,6 +69,13 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
         const i16 dir_x = vertical ? 0 : 1;
         const i16 dir_y = vertical ? 1 : 0;
 
+        // potential evaluation:
+        // - Dynamic versus static with reveal
+        // - Is it better to have most intersections or not?
+        u8 best_x = 0;
+        u8 best_y = 0;
+        u8 most_intersections = 0;
+
         for (u8 i = 0; i < cw->num_entries; ++i)
         {
             const size_t entry_index = (i + offset) % cw->num_entries;
@@ -200,6 +207,13 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                     {
                         x = start_x - dir_x * word_offset;
                         y = start_y - dir_y * word_offset;
+
+                        // if (interesctions > most_intersections)
+                        // {
+                        //     best_x = x;
+                        //     best_y = y;
+                        //     most_intersections = most_intersections;
+                        // }
                         valid_placement_found = true;
                         break;
                     }
@@ -276,6 +290,13 @@ bool cw_add_word(Crossword *cw)
     for (; cw->clue_index < 100; ++cw->clue_index)
     {
         const Word *w = &words[cw->clue_index];
+
+        // TODO: change this to be in the build.zig
+        // TODO: add easier words when player fails
+        if (strlen(w->word) <= 3)
+        {
+            continue;
+        }
 
         // Make sure the word has not been used before
         bool word_already_used = false;
