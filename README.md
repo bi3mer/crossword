@@ -5,6 +5,8 @@ A [raylib](https://www.raylib.com/index.html)-based implementation of a Crosswor
 ## Compiling and Running
 
 ```bash
+git submodule init
+gi submodule update
 zig build run
 ```
 
