@@ -5,14 +5,11 @@
 #include <string.h>
 #include <time.h>
 
-#define ADJUST_IMPLEMENTATION
-#include "adjust.h"
-#include "foundation.h"
-
 #include "raylib.h"
 
 #include "block_centered_text.h"
 #include "crossword.h"
+#include "foundation.h"
 
 // One gripe I have is that the line `C size_t i` takes 14 characters: a lot of
 // typing. So, I'm going to try and make it a bit easier on myself by just
@@ -20,21 +17,22 @@
 // easier to read, but if it doesn't, then I'll change back.
 #define C const
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // Cants for the puzzle
-ADJUST_GLOBAL_CONST_INT(g_cell_width, 48);
-ADJUST_GLOBAL_CONST_INT(g_cell_height, 48);
+const int g_cell_width = 48;
+const int g_cell_height = 48;
 
-ADJUST_GLOBAL_CONST_FLOAT(g_min_zoom, 0.5f);
-ADJUST_GLOBAL_CONST_FLOAT(g_max_zoom, 1.1f);
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// Structures for defining the crossword grid that expands as the player plays
-// the game.
+const float g_min_zoom = 0.5f;
+const float g_max_zoom = 1.1f;
 
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
+    C float mouse_scroll_mitigator = 0.002f;
     C int texture_width = 1080;
     C int texture_height = 720;
 
@@ -83,21 +81,9 @@ int main(void)
                              BLACK);
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // Set up adjustables
-    adjust_init();
-    ADJUST_CONST_FLOAT(mouse_scroll_mitigator, 0.002f);
-
-    adjust_register_global_int(g_cell_width);
-    adjust_register_global_int(g_cell_height);
-    adjust_register_global_float(g_min_zoom);
-    adjust_register_global_float(g_max_zoom);
-
-    /////////////////////////////////////////////////////////////////////////////////////
     // Run the game
     while (!WindowShouldClose())
     {
-        adjust_update();
-
         // handle mouse input
         {
             // click and drag to move the camera around
@@ -386,7 +372,6 @@ int main(void)
         }
     }
 
-    adjust_cleanup();
     UnloadRenderTexture(target);
     CloseWindow();
 

@@ -48,11 +48,13 @@ pub fn build(b: *std.Build) void {
                     field_start = i + 1;
                 }
             }
+
             if (field_idx < 6) {
                 var field = line[field_start..];
                 if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') {
                     field = field[1 .. field.len - 1];
                 }
+
                 fields[field_idx] = field;
             }
 
@@ -61,7 +63,6 @@ pub fn build(b: *std.Build) void {
             for (fields[0], 0..) |c, j| {
                 word_upper[j] = std.ascii.toUpper(c);
             }
-            defer allocator.free(word_upper);
 
             entries.append(allocator, .{
                 .word = word_upper,
@@ -102,6 +103,7 @@ pub fn build(b: *std.Build) void {
             \\
         ) catch @panic("write failed");
 
+        std.debug.print("Starting to write!\n", .{});
         for (entries.items) |e| {
             var buf: [2048]u8 = undefined;
             const formatted = std.fmt.bufPrint(&buf,
@@ -117,6 +119,7 @@ pub fn build(b: *std.Build) void {
 
             header_file.writeAll(formatted) catch @panic("write failed");
         }
+        std.debug.print("Done writing!\n", .{});
 
         header_file.writeAll(
             \\};
