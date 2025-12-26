@@ -44,18 +44,6 @@ int main(void)
     // TODO: EnableEventWaiting()?
 
     Crossword crossword = {0};
-
-    // cw_place_word(&crossword, words + 3, false);
-    // cw_place_word(&crossword, words + 100, true);
-    // cw_place_word(&crossword, words + 200, false);
-    // cw_place_word(&crossword, words + 300, false);
-    // cw_place_word(&crossword, words + 400, true);
-    // cw_place_word(&crossword, words + 500, false);
-    // cw_place_word(&crossword, words + 600, true);
-    // cw_place_word(&crossword, words + 700, false);
-    // cw_place_word(&crossword, words + 48, false);
-    // cw_place_word(&crossword, words + 70, true);
-    // cw_place_word(&crossword, words + f_rand_u16(20000, 30000), false);
     cw_add_word(&crossword);
     cw_add_word(&crossword);
 
