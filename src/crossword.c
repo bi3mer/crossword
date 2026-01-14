@@ -52,16 +52,18 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 {
     e_assert(cw->num_entries <= CW_MAX_ENTRIES);
 
-    bool valid_placement_found = false;
-    i16 x, y;
+    const u8 max_valid_placements = 10;
+    u8 valid_placements_found = 0;
+    i16 x, y, best_x, best_y;
+
     if (cw->num_entries == 0)
     {
         // if there are no entries, there is no point looking for an
         // interesection, and instead we'll just place the word in the center of
         // the puzzle
-        x = CW_DIM / 2;
-        y = CW_DIM / 2;
-        valid_placement_found = true;
+        best_x = CW_DIM / 2;
+        best_y = CW_DIM / 2;
+        ++valid_placements_found;
     }
     else
     {
@@ -72,9 +74,8 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
         // potential evaluation:
         // - Dynamic versus static with reveal
         // - Is it better to have most intersections or not?
-        u8 best_x = 0;
-        u8 best_y = 0;
         u8 most_intersections = 0;
+        u8 intersections;
 
         for (u8 i = 0; i < cw->num_entries; ++i)
         {
@@ -98,6 +99,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                 {
                     x = start_x - dir_x * word_offset;
                     y = start_y - dir_y * word_offset;
+                    intersections = 0;
 
                     // bounds checks
                     if (x < 0 || y < 0 || x >= CW_DIM || y >= CW_DIM)
@@ -181,7 +183,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                             //
                             // Ignore te double use of top, and instead imagine
                             // what would happen if we tried to place "DEPARTMENT"
-                            // We would get:
+                            // We could get:
                             //
                             //               T
                             // D E P A R T M E N T
@@ -192,6 +194,10 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
                             valid = false;
                             break;
+                        }
+                        else
+                        {
+                            ++intersections;
                         }
 
                         x += dir_x;
@@ -205,34 +211,38 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
                     if (valid)
                     {
-                        x = start_x - dir_x * word_offset;
-                        y = start_y - dir_y * word_offset;
+                        if (intersections > most_intersections ||
+                            (intersections == most_intersections && f_rand_bool()))
+                        {
+                            best_x = start_x - dir_x * word_offset;
+                            best_y = start_y - dir_y * word_offset;
+                            most_intersections = intersections;
 
-                        // if (interesctions > most_intersections)
-                        // {
-                        //     best_x = x;
-                        //     best_y = y;
-                        //     most_intersections = most_intersections;
-                        // }
-                        valid_placement_found = true;
-                        break;
+                            ++valid_placements_found;
+
+                            if (valid_placements_found == max_valid_placements)
+                                break;
+                        }
                     }
                 }
 
-                if (valid_placement_found)
+                if (valid_placements_found == max_valid_placements)
                     break;
             }
 
-            if (valid_placement_found)
+            if (valid_placements_found == max_valid_placements)
                 break;
         }
     }
 
-    if (!valid_placement_found)
+    if (valid_placements_found == 0)
     {
         printf("Failed to find placement for: %s\n", w->word);
         return true; // unable to place word (meaning, a new word is needed)
     }
+
+    x = best_x;
+    y = best_y;
 
     printf("Found placement for: %s\n", w->word);
 

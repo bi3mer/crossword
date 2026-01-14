@@ -154,9 +154,9 @@ pub fn build(b: *std.Build) void {
 
     const is_release = optimize != .Debug;
     const c_flags: []const []const u8 = if (is_release)
-        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
     else
-        &.{ "-std=c99", "-Wall", "-Wextra", "-pedantic" };
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic" };
 
     includeDir(b, exe.root_module, "deps/staunch/Glow", c_flags);
     includeDir(b, exe.root_module, "deps/staunch/Exam", c_flags);
