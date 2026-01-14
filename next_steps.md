@@ -7,3 +7,6 @@
 - [ ] BUG: if full screen, then mouse input fails
 - [ ] Find a better dataset
 - [ ] reset clue index with a `mod` (%) if they get to the end
+- [ ] State: game
+- [ ] State: menu
+- [ ] State: stats
