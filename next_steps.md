@@ -1,0 +1,9 @@
+- [ ] BUG: crash on more than 20 or so clues solved
+- [ ] Feature: if the player is struggling, give them another word that may help them fill in the current word, if possible (preferably a short word)
+  - so the behavior would be similar to add_word, but instead it would try to use short words instead.
+- [ ] State Machine: add state machine for scenes
+- [ ] Menu scene
+- [ ] Game scene, track current player progress via clue index
+- [ ] BUG: if full screen, then mouse input fails
+- [ ] Find a better dataset
+- [ ] reset clue index with a `mod` (%) if they get to the end
