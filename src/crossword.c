@@ -1,16 +1,20 @@
 #include "crossword.h"
 
-#include "clues.h"
-#include "exam.h"
-#include "foundation.h"
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "staunch/exam.h"
+#include "staunch/random.h"
+#include "staunch/types.h"
+
+#include "clues.h"
 
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
     // this funciton should be called if the entry is already validated
-    e_assert(!ce->complete);
+    s_assert(!ce->complete);
 
     i16 x = ce->start_x;
     i16 y = ce->start_y;
@@ -50,7 +54,7 @@ bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 // returns true if there was an error with placement, otherwise false
 bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 {
-    e_assert(cw->num_entries <= CW_MAX_ENTRIES);
+    s_assert(cw->num_entries <= CW_MAX_ENTRIES);
 
     const u8 max_valid_placements = 10;
     u8 valid_placements_found = 0;
@@ -67,7 +71,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     }
     else
     {
-        const size_t offset = (size_t)f_rand_u16(0, (u16)cw->num_entries - 1);
+        const size_t offset = (size_t)s_rand_u16(0, (u16)cw->num_entries - 1);
         const i16 dir_x = vertical ? 0 : 1;
         const i16 dir_y = vertical ? 1 : 0;
 
@@ -212,7 +216,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
                     if (valid)
                     {
                         if (intersections > most_intersections ||
-                            (intersections == most_intersections && f_rand_bool()))
+                            (intersections == most_intersections && s_rand_bool()))
                         {
                             best_x = start_x - dir_x * word_offset;
                             best_y = start_y - dir_y * word_offset;
@@ -250,7 +254,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     e->word = w->word;
     e->start_x = x;
     e->start_y = y;
-    e->clue_str = w->clues[f_rand_u8(0, 2)];
+    e->clue_str = w->clues[s_rand_u8(0, 2)];
     e->word_length = w->word_length;
 
     const i16 dir_x = !vertical;
@@ -291,7 +295,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 // optimization: store index  of last word to reduce search time
 bool cw_add_word(Crossword *cw)
 {
-    e_assert(cw->num_entries <= CW_MAX_ENTRIES);
+    s_assert(cw->num_entries <= CW_MAX_ENTRIES);
 
     bool placed_word = false;
     double probability_of_skip = 0.2;
@@ -325,14 +329,14 @@ bool cw_add_word(Crossword *cw)
         }
 
         // Random chance to skip words
-        if (f_rand_d(0, 1) < probability_of_skip)
+        if (s_rand_f64(0.0, 1.0) < probability_of_skip)
         {
             probability_of_skip -= 0.02;
             continue;
         }
 
         // Try to place the word
-        bool vertical = f_rand_bool();
+        const bool vertical = s_rand_bool();
         if (!cw_place_word(cw, w, vertical))
         {
             placed_word = true;
