@@ -284,10 +284,83 @@ void sm_update(Game_State *gs)
         exit(1);
     }
     }
+
+    if (gs->next_state != NUM_STATES)
+    {
+        sm_on_exit(gs);
+
+        sd->state = sd->next_state;
+        sd->next_state = SM_ERROR;
+
+        sm_on_enter(gs);
+    }
 }
 
 void sm_render(const Game_State *state)
 {
+    // // render state to texture
+    // {
+    //     BeginTextureMode(target);
+    //     ClearBackground(BLACK);
+
+    //     BeginMode2D(gs.camera);
+
+    //     // render board
+    //     for (int y = 0; y < CW_DIM; ++y)
+    //     {
+    //         for (int x = 0; x < CW_DIM; ++x)
+    //         {
+    //             const Cell *c = &crossword.cells[y][x];
+
+    //             if (c->correct_letter != 0)
+    //             {
+    //                 const Color color = c == selected_cell
+    //                                         ? (c->locked ? LIGHTGRAY : YELLOW)
+    //                                         : (c->locked ? GRAY : WHITE);
+    //                 DrawRectangle(g_cell_width * x, g_cell_height * y,
+    //                               g_cell_width - 1, g_cell_height - 1, color);
+
+    //                 if (c->user_letter != 0)
+    //                 {
+    //                     const char text[2] = {c->user_letter, '\0'};
+    //                     const int font_size = 40;
+    //                     DrawText(text, x * g_cell_width + 13, y * g_cell_height + 5,
+    //                              font_size, BLACK);
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     EndMode2D();
+
+    //     // render title and clue
+    //     block_centered_text_render(&title);
+
+    //     DrawRectangle(100, g_texture_height - 100, g_texture_width - 200, 100, WHITE);
+    //     DrawRectangleLinesEx(
+    //         (Rectangle){99, g_texture_height - 101, g_texture_width - 198, 106}, 5,
+    //         BLACK);
+
+    //     const char *clue_str = crossword.vertical_mode
+    //                                ? selected_cell->vertical_entry->clue_str
+    //                                : selected_cell->horizontal_entry->clue_str;
+    //     DrawText(clue_str, 110, g_texture_height - 90, 20, BLACK);
+
+    //     EndTextureMode();
+    // }
+    // // render the texture to the screen
+    // {
+    //     BeginDrawing();
+    //     const f32 W = (f32)GetScreenWidth();
+    //     const f32 H = (f32)GetScreenHeight();
+
+    //     DrawTexturePro(target.texture,
+    //                    (Rectangle){0, 0, (float)target.texture.width,
+    //                                (float)-target.texture.height},
+    //                    (Rectangle){0, 0, W, H}, (Vector2){0, 0}, 0, WHITE);
+
+    //     EndDrawing();
+    // }
     switch (g_active_state)
     {
     ///////////////////////////////////////////////////////////////////////////

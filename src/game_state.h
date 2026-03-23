@@ -3,9 +3,11 @@
 
 #include "crossword.h"
 #include "raylib.h"
+#include "state_machine.h"
 
 typedef struct
 {
+    State current_state, next_state;
     Camera2D camera;
     Crossword cw;
     Cell *selected_cell;
