@@ -1,32 +1,23 @@
-#include <ctype.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
+#include "game_state.h"
 #include "raylib.h"
 
+#include "staunch/random.h"
+#include "staunch/types.h"
+
 #include "block_centered_text.h"
+#include "const.h"
 #include "crossword.h"
-#include "foundation.h"
 #include "state_machine.h"
-
-// One gripe I have is that the line `C size_t i` takes 14 characters: a lot of
-// typing. So, I'm going to try and make it a bit easier on myself by just
-// having an upper case 'C' to represent. I'm hoping that it will make the code
-// easier to read, but if it doesn't, then I'll change back.
-#define C const
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
-    C float mouse_scroll_mitigator = 0.002f;
-    C int texture_width = 1080;
-    C int texture_height = 720;
+    const f32 mouse_scroll_mitigator = 0.002f;
+    const i32 texture_width = 1080;
+    const i32 texture_height = 720;
 
     InitWindow(texture_width, texture_height, "Crossword");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
@@ -34,8 +25,7 @@ int main(void)
 
     g_active_state = STATE_GAME;
 
-    f_rand_init(time(NULL));
-    // TODO: EnableEventWaiting()?
+    s_rand_init(time(NULL));
 
     Crossword crossword = {0};
     cw_add_word(&crossword);
@@ -51,10 +41,8 @@ int main(void)
     min_y = -300;
     max_y = 700;
 
-    Camera2D camera = {0};
-    camera.zoom = 1.0f;
-    camera.target.x = g_cell_width * CW_DIM / 2.f - 250;
-    camera.target.y = g_cell_height * CW_DIM / 2.f - 250;
+    Game_State gs;
+    game_state_init(&gs);
 
     RenderTexture2D target = LoadRenderTexture(texture_width, texture_height);
 
@@ -66,13 +54,12 @@ int main(void)
     // Run the game
     while (!WindowShouldClose())
     {
-
         // render state to texture
         {
             BeginTextureMode(target);
             ClearBackground(BLACK);
 
-            BeginMode2D(camera);
+            BeginMode2D(gs.camera);
 
             // render board
             for (int y = 0; y < CW_DIM; ++y)
@@ -118,6 +105,8 @@ int main(void)
             EndTextureMode();
         }
 
+        sm_update(&gs);
+        sm_render(&gs);
         // render the texture to the screen
         {
             BeginDrawing();

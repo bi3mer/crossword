@@ -1,11 +1,20 @@
 #include "state_machine.h"
 #include "const.h"
+#include "crossword.h"
 #include "exam.h"
 
 #include "raylib.h"
 
+#include "staunch/general_math.h"
+#include "staunch/types.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+
+const f64 min_x = -300;
+const f64 max_x = 1000;
+const f64 min_y = -300;
+const f64 max_y = 700;
 
 State g_active_state;
 
@@ -17,7 +26,7 @@ void sm_on_exit(Game_State *state)
 {
 }
 
-void sm_update(Game_State *state)
+void sm_update(Game_State *gs)
 {
     switch (g_active_state)
     {
@@ -34,33 +43,37 @@ void sm_update(Game_State *state)
 
         // handle mouse input
         {
+            Camera2D *c = &gs->camera;
+            Crossword *cw = gs->cw;
+            Cell *selected_cell = gs->selected_cell;
+
             // click and drag to move the camera around
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
                 IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
                 IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
             {
                 const Vector2 mouse_delta = GetMouseDelta();
-                const float new_x = camera.offset.x + mouse_delta.x;
-                const float new_y = camera.offset.y + mouse_delta.y;
+                const float new_x = c->offset.x + mouse_delta.x;
+                const float new_y = c->offset.y + mouse_delta.y;
 
-                camera.offset.x = MAX(MIN(new_x, max_x), min_x);
-                camera.offset.y = MAX(MIN(new_y, max_y), min_y);
+                c->offset.x = s_clamp_f64(min_x, new_x, max_x);
+                c->offset.y = s_clamp_f64(min_y, new_y, max_y);
             }
 
             // check for a click on a cell
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 const Vector2 mouse_position =
-                    GetScreenToWorld2D(GetMousePosition(), camera);
+                    GetScreenToWorld2D(GetMousePosition(), gs->camera);
 
                 const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
                 const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
 
                 if (f_in_between_i16(0, cell_x, CW_DIM - 1) &&
                     f_in_between_i16(0, cell_y, CW_DIM - 1) &&
-                    crossword.cells[cell_y][cell_x].correct_letter != 0)
+                    gs->cw.cells[cell_y][cell_x].correct_letter != 0)
                 {
-                    Cell *next_cell = &crossword.cells[cell_y][cell_x];
+                    Cell *next_cell = cw->cells[cell_y][cell_x];
 
                     if (next_cell == selected_cell)
                     {

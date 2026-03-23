@@ -2,7 +2,7 @@
 #define _CROSSWORD_
 
 #include "clues.h"
-#include "foundation.h"
+#include "staunch/types.h"
 
 #define CW_DIM 100
 #define CW_MAX_ENTRIES 20

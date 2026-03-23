@@ -1,7 +1,9 @@
 #ifndef _STATE_MACHINE_
 #define _STATE_MACHINE_
 
+#include "crossword.h"
 #include "game_state.h"
+
 typedef enum
 {
     STATE_MENU = 0,
