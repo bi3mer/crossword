@@ -1,17 +1,15 @@
 #include "block_centered_text.h"
 #include "raylib.h"
 
-void block_centered_text_init(Block_Centered_Text *bct, char *text,
-                              int font_size, int y, Color text_color,
-                              int screen_width, int block_border_size,
+void block_centered_text_init(Block_Centered_Text *bct, char *text, int font_size, int y,
+                              Color text_color, int screen_width, int block_border_size,
                               Color block_color)
 {
     bct->text = text;
     bct->font_size = font_size;
     bct->text_color = text_color;
 
-    const Vector2 v =
-        MeasureTextEx(GetFontDefault(), text, font_size, font_size / 10.f);
+    const Vector2 v = MeasureTextEx(GetFontDefault(), text, font_size, font_size / 10.f);
     bct->_x = (screen_width - (int)v.x) / 2;
     bct->y = y;
 
