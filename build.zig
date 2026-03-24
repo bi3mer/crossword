@@ -151,9 +151,9 @@ pub fn build(b: *std.Build) void {
 
     const is_release = optimize != .Debug;
     const c_flags: []const []const u8 = if (is_release)
-        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION" }
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION", "-D_POSIX_C_SOURCE=200809L" }
     else
-        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic" };
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-D_POSIX_C_SOURCE=200809L" };
 
     exe.root_module.addIncludePath(b.path("deps/staunch/include"));
     addCSourceDir(b, exe.root_module, "deps/staunch/src", c_flags);

@@ -43,7 +43,7 @@ int main(void)
 
     /////////////////////////////////////////////////////////////////////////////////////
     // Run the game
-    sm_start();
+    sm_start(&gs);
     while (!WindowShouldClose())
     {
         sm_update(&gs);

@@ -6,9 +6,10 @@
 
 extern State g_active_state;
 
-extern void sm_on_enter(Game_State *state);
-extern void sm_on_exit(Game_State *state);
-extern void sm_update(Game_State *state);
-extern void sm_render(const Game_State *state);
+extern void sm_start(Game_State *gs);
+extern void sm_on_enter(Game_State *gs);
+extern void sm_on_exit(Game_State *gs);
+extern void sm_update(Game_State *gs);
+extern void sm_render(const Game_State *gs);
 
 #endif
