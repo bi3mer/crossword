@@ -308,7 +308,7 @@ void sm_render(const Game_State *gs)
 {
     const Crossword *cw = &gs->cw;
     const Camera2D *c = &gs->camera;
-    Cell *selected_cell = gs->selected_cell;
+    const Cell *selected_cell = gs->selected_cell;
 
     BeginTextureMode(*gs->render_target);
     ClearBackground(BLACK);
