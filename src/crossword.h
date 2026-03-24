@@ -1,6 +1,8 @@
 #ifndef _CROSSWORD_
 #define _CROSSWORD_
 
+#include <stdbool.h>
+
 #include "clues.h"
 #include "staunch/types.h"
 

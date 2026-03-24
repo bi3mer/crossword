@@ -1,10 +1,11 @@
 #include "state_machine.h"
+#include "block_centered_text.h"
 #include "const.h"
 #include "crossword.h"
-#include "exam.h"
 
 #include "raylib.h"
 
+#include "staunch/exam.h"
 #include "staunch/general_math.h"
 #include "staunch/types.h"
 
@@ -18,6 +19,13 @@ const f64 min_y = -300;
 const f64 max_y = 700;
 
 State g_active_state;
+Block_Centered_Text g_title;
+
+void sm_start(Game_State *gs)
+{
+    block_centered_text_init(&g_title, (char *)"Crossword", 40, 20, WHITE,
+                             g_texture_width, 5, BLACK);
+}
 
 void sm_on_enter(Game_State *state)
 {
@@ -42,7 +50,7 @@ void sm_update(Game_State *gs)
     case STATE_GAME:
     {
         Camera2D *c = &gs->camera;
-        Crossword *cw = gs->cw;
+        Crossword *cw = &gs->cw;
         Cell *selected_cell = gs->selected_cell;
 
         // handle mouse input
@@ -73,7 +81,7 @@ void sm_update(Game_State *gs)
                     s_in_between_i16(0, cell_y, CW_DIM - 1) &&
                     gs->cw.cells[cell_y][cell_x].correct_letter != 0)
                 {
-                    Cell *next_cell = cw->cells[cell_y][cell_x];
+                    Cell *next_cell = &cw->cells[cell_y][cell_x];
 
                     if (next_cell == selected_cell)
                     {
@@ -296,71 +304,15 @@ void sm_update(Game_State *gs)
     }
 }
 
-void sm_render(const Game_State *state)
+void sm_render(const Game_State *gs)
 {
-    // // render state to texture
-    // {
-    //     BeginTextureMode(target);
-    //     ClearBackground(BLACK);
+    const Crossword *cw = &gs->cw;
+    const Camera2D *c = &gs->camera;
+    Cell *selected_cell = gs->selected_cell;
 
-    //     BeginMode2D(gs.camera);
+    BeginTextureMode(*gs->render_target);
+    ClearBackground(BLACK);
 
-    //     // render board
-    //     for (int y = 0; y < CW_DIM; ++y)
-    //     {
-    //         for (int x = 0; x < CW_DIM; ++x)
-    //         {
-    //             const Cell *c = &crossword.cells[y][x];
-
-    //             if (c->correct_letter != 0)
-    //             {
-    //                 const Color color = c == selected_cell
-    //                                         ? (c->locked ? LIGHTGRAY : YELLOW)
-    //                                         : (c->locked ? GRAY : WHITE);
-    //                 DrawRectangle(g_cell_width * x, g_cell_height * y,
-    //                               g_cell_width - 1, g_cell_height - 1, color);
-
-    //                 if (c->user_letter != 0)
-    //                 {
-    //                     const char text[2] = {c->user_letter, '\0'};
-    //                     const int font_size = 40;
-    //                     DrawText(text, x * g_cell_width + 13, y * g_cell_height + 5,
-    //                              font_size, BLACK);
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     EndMode2D();
-
-    //     // render title and clue
-    //     block_centered_text_render(&title);
-
-    //     DrawRectangle(100, g_texture_height - 100, g_texture_width - 200, 100, WHITE);
-    //     DrawRectangleLinesEx(
-    //         (Rectangle){99, g_texture_height - 101, g_texture_width - 198, 106}, 5,
-    //         BLACK);
-
-    //     const char *clue_str = crossword.vertical_mode
-    //                                ? selected_cell->vertical_entry->clue_str
-    //                                : selected_cell->horizontal_entry->clue_str;
-    //     DrawText(clue_str, 110, g_texture_height - 90, 20, BLACK);
-
-    //     EndTextureMode();
-    // }
-    // // render the texture to the screen
-    // {
-    //     BeginDrawing();
-    //     const f32 W = (f32)GetScreenWidth();
-    //     const f32 H = (f32)GetScreenHeight();
-
-    //     DrawTexturePro(target.texture,
-    //                    (Rectangle){0, 0, (float)target.texture.width,
-    //                                (float)-target.texture.height},
-    //                    (Rectangle){0, 0, W, H}, (Vector2){0, 0}, 0, WHITE);
-
-    //     EndDrawing();
-    // }
     switch (g_active_state)
     {
     ///////////////////////////////////////////////////////////////////////////
@@ -374,8 +326,48 @@ void sm_render(const Game_State *state)
     ///////////////////////////////////////////////////////////////////////////
     case STATE_GAME:
     {
-        printf("Game state not implemented\n");
-        exit(1);
+        BeginMode2D(gs->camera);
+
+        // render board
+        for (int y = 0; y < CW_DIM; ++y)
+        {
+            for (int x = 0; x < CW_DIM; ++x)
+            {
+                const Cell *c = &cw->cells[y][x];
+
+                if (c->correct_letter != 0)
+                {
+                    const Color color = c == gs->selected_cell
+                                            ? (c->locked ? LIGHTGRAY : YELLOW)
+                                            : (c->locked ? GRAY : WHITE);
+                    DrawRectangle(g_cell_width * x, g_cell_height * y, g_cell_width - 1,
+                                  g_cell_height - 1, color);
+
+                    if (c->user_letter != 0)
+                    {
+                        const char text[2] = {c->user_letter, '\0'};
+                        const int font_size = 40;
+                        DrawText(text, x * g_cell_width + 13, y * g_cell_height + 5,
+                                 font_size, BLACK);
+                    }
+                }
+            }
+        }
+
+        EndMode2D();
+
+        // render title and clue
+        block_centered_text_render(&g_title);
+
+        DrawRectangle(100, g_texture_height - 100, g_texture_width - 200, 100, WHITE);
+        DrawRectangleLinesEx(
+            (Rectangle){99, g_texture_height - 101, g_texture_width - 198, 106}, 5,
+            BLACK);
+
+        const char *clue_str = cw->vertical_mode
+                                   ? selected_cell->vertical_entry->clue_str
+                                   : selected_cell->horizontal_entry->clue_str;
+        DrawText(clue_str, 110, g_texture_height - 90, 20, BLACK);
         break;
     }
 
@@ -388,10 +380,27 @@ void sm_render(const Game_State *state)
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    case NUM_STATES:
     default:
     {
         printf("Unhandled active state type: %d\n", g_active_state);
         exit(1);
     }
+    }
+
+    EndTextureMode();
+
+    // render the texture to the screen
+    {
+        BeginDrawing();
+        const f32 W = (f32)GetScreenWidth();
+        const f32 H = (f32)GetScreenHeight();
+
+        DrawTexturePro(gs->render_target->texture,
+                       (Rectangle){0, 0, (float)gs->render_target->texture.width,
+                                   (float)-gs->render_target->texture.height},
+                       (Rectangle){0, 0, W, H}, (Vector2){0, 0}, 0, WHITE);
+
+        EndDrawing();
     }
 }

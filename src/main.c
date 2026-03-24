@@ -35,6 +35,7 @@ int main(void)
     game_state_init(&gs);
 
     RenderTexture2D target = LoadRenderTexture(g_texture_width, g_texture_height);
+    gs.render_target = &target;
 
     Block_Centered_Text title;
     block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE, g_texture_width,
@@ -42,6 +43,7 @@ int main(void)
 
     /////////////////////////////////////////////////////////////////////////////////////
     // Run the game
+    sm_start();
     while (!WindowShouldClose())
     {
         sm_update(&gs);
