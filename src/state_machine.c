@@ -8,6 +8,7 @@
 #include "staunch/general_math.h"
 #include "staunch/types.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -40,13 +41,12 @@ void sm_update(Game_State *gs)
     ///////////////////////////////////////////////////////////////////////////
     case STATE_GAME:
     {
+        Camera2D *c = &gs->camera;
+        Crossword *cw = gs->cw;
+        Cell *selected_cell = gs->selected_cell;
 
         // handle mouse input
         {
-            Camera2D *c = &gs->camera;
-            Crossword *cw = gs->cw;
-            Cell *selected_cell = gs->selected_cell;
-
             // click and drag to move the camera around
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
                 IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) ||
@@ -69,48 +69,48 @@ void sm_update(Game_State *gs)
                 const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
                 const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
 
-                if (f_in_between_i16(0, cell_x, CW_DIM - 1) &&
-                    f_in_between_i16(0, cell_y, CW_DIM - 1) &&
+                if (s_in_between_i16(0, cell_x, CW_DIM - 1) &&
+                    s_in_between_i16(0, cell_y, CW_DIM - 1) &&
                     gs->cw.cells[cell_y][cell_x].correct_letter != 0)
                 {
                     Cell *next_cell = cw->cells[cell_y][cell_x];
 
                     if (next_cell == selected_cell)
                     {
-                        if (crossword.vertical_mode)
+                        if (cw->vertical_mode)
                         {
                             if (selected_cell->horizontal_entry != NULL)
                             {
-                                crossword.vertical_mode = false;
+                                cw->vertical_mode = false;
                             }
                         }
                         else if (selected_cell->vertical_entry != NULL)
                         {
-                            crossword.vertical_mode = true;
+                            cw->vertical_mode = true;
                         }
                     }
                     else
                     {
                         selected_cell = next_cell;
 
-                        if (crossword.vertical_mode)
+                        if (cw->vertical_mode)
                         {
                             if (selected_cell->vertical_entry == NULL)
                             {
-                                crossword.vertical_mode = false;
+                                cw->vertical_mode = false;
                             }
                         }
                         else if (selected_cell->horizontal_entry == NULL)
                         {
-                            crossword.vertical_mode = true;
+                            cw->vertical_mode = true;
                         }
                     }
                 }
             }
 
             // zooming in and out with mouse wheel
-            camera.zoom -= GetMouseWheelMove() * mouse_scroll_mitigator;
-            camera.zoom = MAX(MIN(camera.zoom, g_max_zoom), g_min_zoom);
+            c->zoom -= GetMouseWheelMove() * g_mouse_scroll_mitigator;
+            c->zoom = s_clamp_f32(g_min_zoom, c->zoom, g_max_zoom);
         }
 
         // handle keyboard input
@@ -126,40 +126,40 @@ void sm_update(Game_State *gs)
                     }
 
                     bool complete = false;
-                    if (crossword.vertical_mode)
+                    if (cw->vertical_mode)
                     {
                         if (!selected_cell->vertical_entry->complete)
                         {
-                            complete = cw_validate_entry(&crossword,
-                                                         selected_cell->vertical_entry);
+                            complete =
+                                cw_validate_entry(cw, selected_cell->vertical_entry);
                         }
 
-                        C i16 next_y = selected_cell->y + 1;
+                        const i16 next_y = selected_cell->y + 1;
                         if (next_y < CW_DIM &&
-                            crossword.cells[next_y][selected_cell->x].correct_letter != 0)
+                            cw->cells[next_y][selected_cell->x].correct_letter != 0)
                         {
-                            selected_cell = &crossword.cells[next_y][selected_cell->x];
+                            selected_cell = &cw->cells[next_y][selected_cell->x];
                         }
                     }
                     else
                     {
                         if (!selected_cell->horizontal_entry->complete)
                         {
-                            complete = cw_validate_entry(&crossword,
-                                                         selected_cell->horizontal_entry);
+                            complete =
+                                cw_validate_entry(cw, selected_cell->horizontal_entry);
                         }
 
-                        C i16 next_x = selected_cell->x + 1;
+                        const i16 next_x = selected_cell->x + 1;
                         if (next_x < CW_DIM &&
-                            crossword.cells[selected_cell->y][next_x].correct_letter != 0)
+                            cw->cells[selected_cell->y][next_x].correct_letter != 0)
                         {
-                            selected_cell = &crossword.cells[selected_cell->y][next_x];
+                            selected_cell = &cw->cells[selected_cell->y][next_x];
                         }
                     }
 
                     if (complete)
                     {
-                        cw_add_word(&crossword);
+                        cw_add_word(cw);
                     }
                 }
                 else if (key == KEY_BACKSPACE)
@@ -169,12 +169,12 @@ void sm_update(Game_State *gs)
                         selected_cell->user_letter = ' ';
                     }
 
-                    if (crossword.vertical_mode)
+                    if (cw->vertical_mode)
                     {
-                        C i16 next_y = selected_cell->y - 1;
+                        const i16 next_y = selected_cell->y - 1;
                         if (next_y >= 0)
                         {
-                            Cell *next_cell = &crossword.cells[next_y][selected_cell->x];
+                            Cell *next_cell = &cw->cells[next_y][selected_cell->x];
                             if (next_cell->correct_letter != 0)
                             {
                                 selected_cell = next_cell;
@@ -183,10 +183,10 @@ void sm_update(Game_State *gs)
                     }
                     else
                     {
-                        C i16 next_x = selected_cell->x - 1;
+                        const i16 next_x = selected_cell->x - 1;
                         if (next_x >= 0)
                         {
-                            Cell *next_cell = &crossword.cells[selected_cell->y][next_x];
+                            Cell *next_cell = &cw->cells[selected_cell->y][next_x];
                             if (next_cell->correct_letter != 0)
                             {
                                 selected_cell = next_cell;
@@ -196,10 +196,10 @@ void sm_update(Game_State *gs)
                 }
                 else if (key == KEY_TAB)
                 {
-                    C Crossword_Entry *ce = crossword.vertical_mode
-                                                ? selected_cell->vertical_entry
-                                                : selected_cell->horizontal_entry;
-                    i16 index = (i16)(ce - crossword.entries);
+                    const Crossword_Entry *ce = cw->vertical_mode
+                                                    ? selected_cell->vertical_entry
+                                                    : selected_cell->horizontal_entry;
+                    i16 index = (i16)(ce - cw->entries);
 
                     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
                     {
@@ -210,22 +210,22 @@ void sm_update(Game_State *gs)
                         ++index;
                     }
 
-                    C size_t offset =
-                        (size_t)f_modulus_i16(index, (i16)crossword.num_entries);
+                    const size_t offset =
+                        (size_t)s_modulus_i16(index, (i16)cw->num_entries);
 
-                    C Crossword_Entry *next = (crossword.entries + offset);
-                    selected_cell = &crossword.cells[next->start_y][next->start_x];
+                    const Crossword_Entry *next = (cw->entries + offset);
+                    selected_cell = &cw->cells[next->start_y][next->start_x];
 
-                    crossword.vertical_mode = next->dir_y == 1;
+                    cw->vertical_mode = next->dir_y == 1;
 
-                    camera.target.x = g_cell_width * next->start_x - 250;
-                    camera.target.y = g_cell_height * next->start_y - 250;
+                    c->target.x = g_cell_width * next->start_x - 250;
+                    c->target.y = g_cell_height * next->start_y - 250;
                 }
                 else
                 {
                     // arrow-based movement
                     i16 dir_x = 0, dir_y = 0;
-                    bool vertical = crossword.vertical_mode;
+                    bool vertical = cw->vertical_mode;
 
                     if (key == KEY_UP)
                     {
@@ -254,11 +254,11 @@ void sm_update(Game_State *gs)
                         i16 y = selected_cell->y + dir_y;
                         if (x >= 0 && x < CW_DIM && y >= 0 && y < CW_DIM)
                         {
-                            Cell *next = &crossword.cells[y][x];
+                            Cell *next = &cw->cells[y][x];
                             if (next->correct_letter != 0)
                             {
                                 selected_cell = next;
-                                crossword.vertical_mode = vertical;
+                                cw->vertical_mode = vertical;
                             }
                         }
                     }
@@ -289,8 +289,8 @@ void sm_update(Game_State *gs)
     {
         sm_on_exit(gs);
 
-        sd->state = sd->next_state;
-        sd->next_state = SM_ERROR;
+        gs->current_state = gs->next_state;
+        gs->next_state = NUM_STATES;
 
         sm_on_enter(gs);
     }
