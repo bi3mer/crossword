@@ -36,3 +36,11 @@ cd web && python3 -m http.server
 ```
 
 Then open `http://localhost:8000` in your browser.
+
+## Evaluation
+
+Headless build for running player persona evaluations against the crossword puzzle logic (no raylib required).
+
+```bash
+zig build eval
+```

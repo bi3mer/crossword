@@ -203,7 +203,7 @@ pub fn build(b: *std.Build) void {
     addCSourceDir(b, exe.root_module, "deps/staunch/src", c_flags);
 
     exe.root_module.addIncludePath(b.path("src"));
-    addCSourceDir(b, exe.root_module, "src", c_flags);
+    addCSourceDirExclude(b, exe.root_module, "src", c_flags, &.{"eval_main.c"});
 
     b.installArtifact(exe);
 
@@ -211,6 +211,37 @@ pub fn build(b: *std.Build) void {
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| run_cmd.addArgs(args);
     b.step("run", "Run the game").dependOn(&run_cmd.step);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Eval executable (headless, no raylib)
+    const eval_exe = b.addExecutable(.{
+        .name = "eval",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+
+    eval_exe.root_module.addIncludePath(b.path("deps/staunch/include"));
+    addCSourceDir(b, eval_exe.root_module, "deps/staunch/src", c_flags);
+
+    eval_exe.root_module.addIncludePath(b.path("src"));
+    eval_exe.root_module.addCSourceFile(.{
+        .file = b.path("src/eval_main.c"),
+        .flags = c_flags,
+    });
+    eval_exe.root_module.addCSourceFile(.{
+        .file = b.path("src/crossword.c"),
+        .flags = c_flags,
+    });
+
+    b.installArtifact(eval_exe);
+
+    const eval_run = b.addRunArtifact(eval_exe);
+    eval_run.step.dependOn(b.getInstallStep());
+    if (b.args) |args| eval_run.addArgs(args);
+    b.step("eval", "Run the evaluation").dependOn(&eval_run.step);
 
     ///////////////////////////////////////////////////////////////////////////
     // Generate compile_commands.json for LSP (clangd / Zed)
@@ -265,6 +296,16 @@ fn addCSourceDir(
     dir_path: []const u8,
     c_flags: []const []const u8,
 ) void {
+    addCSourceDirExclude(b, module, dir_path, c_flags, &.{});
+}
+
+fn addCSourceDirExclude(
+    b: *std.Build,
+    module: *std.Build.Module,
+    dir_path: []const u8,
+    c_flags: []const []const u8,
+    exclude: []const []const u8,
+) void {
     var dir = b.build_root.handle.openDir(dir_path, .{ .iterate = true }) catch {
         std.debug.print("failed to open directory: {s}\n", .{dir_path});
         @panic("build failed");
@@ -274,6 +315,15 @@ fn addCSourceDir(
     var iter = dir.iterate();
     while (iter.next() catch null) |entry| {
         if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".c")) {
+            var skip = false;
+            for (exclude) |ex| {
+                if (std.mem.eql(u8, entry.name, ex)) {
+                    skip = true;
+                    break;
+                }
+            }
+            if (skip) continue;
+
             module.addCSourceFile(.{
                 .file = b.path(b.fmt("{s}/{s}", .{ dir_path, entry.name })),
                 .flags = c_flags,
