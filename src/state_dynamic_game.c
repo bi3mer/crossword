@@ -1,4 +1,4 @@
-#include "state_game.h"
+#include "state_dynamic_game.h"
 #include "block_centered_text.h"
 #include "const.h"
 #include "crossword.h"
@@ -163,7 +163,11 @@ static void tick(FSM *fsm, const float dt)
                 {
                     if (cw->num_entries < CW_MAX_ENTRIES)
                     {
-                        cw_add_word(cw);
+                        if (!cw_add_word(cw))
+                        {
+                            cw->clue_index /= 2;
+                            cw_add_word(cw);
+                        }
                     }
                     else
                     {
@@ -392,7 +396,7 @@ static void render(const FSM *fsm)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void state_game_init(FSM_State *state)
+void state_dynamic_game_init(FSM_State *state)
 {
     state->on_enter = on_enter;
     state->physics_tick = physics_tick;

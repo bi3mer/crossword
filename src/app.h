@@ -16,7 +16,8 @@ typedef struct
     Block_Centered_Text title;
     FSM fsm;
     FSM_State state_menu;
-    FSM_State state_game;
+    FSM_State state_dynamic_game;
+    FSM_State state_static_game;
     FSM_State state_results;
     double start_time;
     double end_time;
