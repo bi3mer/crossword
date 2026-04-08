@@ -4,15 +4,21 @@
 
 #include "raylib.h"
 
+#if defined(PLATFORM_WEB)
+#define MENU_BUTTON_COUNT 3
+#else
 #define MENU_BUTTON_COUNT 4
+#endif
 
 static int selected_button;
 
-static const char *button_labels[MENU_BUTTON_COUNT] = {
+static const char *button_labels[] = {
     "Dynamic Puzzle",
     "Static Puzzle",
     "Settings",
+#if !defined(PLATFORM_WEB)
     "Quit",
+#endif
 };
 
 static const int button_w = 300;

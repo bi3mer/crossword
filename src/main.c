@@ -14,11 +14,21 @@
 
 #include "raylib.h"
 
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+#endif
+
+static App app;
+
+static void update_frame(void)
+{
+    fsm_tick(&app.fsm, GetFrameTime());
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
 {
     InitWindow(g_texture_width, g_texture_height, "Crossword");
-    SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(KEY_NULL);
     SetTargetFPS(60);
     InitAudioDevice();
@@ -27,18 +37,24 @@ int main(void)
 
     RenderTexture2D target = LoadRenderTexture(g_texture_width, g_texture_height);
 
-    App app = {0};
+    app = (App){0};
     app_init(&app, &target);
 
     app.sfx_type = LoadSound("assets/type.wav");
-    app.sfx_solve = LoadSound("assets/solve.mp3");
+    app.sfx_solve = LoadSound("assets/solve.wav");
 
     fsm_init(&app.fsm, &app.state_menu, &app);
 
+#if defined(PLATFORM_WEB)
+    emscripten_set_main_loop(update_frame, 60, 1);
+#else
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
+
     while (!WindowShouldClose() && !app.should_quit)
     {
-        fsm_tick(&app.fsm, GetFrameTime());
+        update_frame();
     }
+#endif
 
     fsm_shutdown(&app.fsm);
     UnloadSound(app.sfx_type);
