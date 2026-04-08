@@ -1,3 +1,6 @@
 [submodule "deps/staunch"]
 	path = deps/staunch
 	url = https://github.com/bi3mer/staunch.git
+[submodule "deps/fsm.h"]
+	path = deps/fsm.h
+	url = https://github.com/bi3mer/fsm.h.git
