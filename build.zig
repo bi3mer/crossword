@@ -136,8 +136,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const raylib_dep = b.dependency("raylib", .{ .target = target, .optimize = optimize });
-
     const exe = b.addExecutable(.{
         .name = "Crossword",
         .root_module = b.createModule(.{
@@ -147,7 +145,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.root_module.addIncludePath(raylib_dep.path("src"));
+    // Use system-installed raylib (via Homebrew)
+    exe.root_module.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+    exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    exe.root_module.linkSystemLibrary("raylib", .{});
 
     const is_release = optimize != .Debug;
     const c_flags: []const []const u8 = if (is_release)
@@ -158,10 +159,10 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addIncludePath(b.path("deps/staunch/include"));
     addCSourceDir(b, exe.root_module, "deps/staunch/src", c_flags);
 
+    exe.root_module.addIncludePath(b.path("deps/fsm.h"));
+
     exe.root_module.addIncludePath(b.path("src"));
     addCSourceDir(b, exe.root_module, "src", c_flags);
-
-    exe.root_module.linkLibrary(raylib_dep.artifact("raylib"));
 
     b.installArtifact(exe);
 
@@ -197,7 +198,7 @@ pub fn build(b: *std.Build) void {
                 \\  {{
                 \\    "directory": "{s}",
                 \\    "file": "{s}/{s}/{s}",
-                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -I{s}/deps/staunch/include -I{s}/src -I{s}/deps/raylib/src {s}/{s}/{s}"
+                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L -I{s}/deps/staunch/include -I{s}/deps/fsm.h -I{s}/src -I/opt/homebrew/include {s}/{s}/{s}"
                 \\  }}
             , .{
                 root,

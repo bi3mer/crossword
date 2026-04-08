@@ -1,16 +1,18 @@
-#include <stddef.h>
 #include <time.h>
 
-#include "game_state.h"
-#include "raylib.h"
-
+#include "staunch/exam.h"
 #include "staunch/random.h"
-#include "staunch/types.h"
 
-#include "block_centered_text.h"
+// fsm.h implementation — must come before any other header that includes fsm.h
+#define FSM_ASSERT s_assert
+#define FSM_IMPLEMENTATION
+#include "fsm.h"
+#undef FSM_IMPLEMENTATION
+
+#include "app.h"
 #include "const.h"
-#include "crossword.h"
-#include "state_machine.h"
+
+#include "raylib.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////
 int main(void)
@@ -19,37 +21,21 @@ int main(void)
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetTargetFPS(60);
 
-    g_active_state = STATE_GAME;
-
     s_rand_init(time(NULL));
 
-    Crossword crossword = {0};
-    cw_add_word(&crossword);
-    cw_add_word(&crossword);
-
-    Cell *selected_cell =
-        &crossword.cells[crossword.entries->start_y][crossword.entries->start_x];
-    crossword.vertical_mode = selected_cell->horizontal_entry == NULL;
-
-    Game_State gs;
-    game_state_init(&gs);
-
     RenderTexture2D target = LoadRenderTexture(g_texture_width, g_texture_height);
-    gs.render_target = &target;
 
-    Block_Centered_Text title;
-    block_centered_text_init(&title, (char *)"Crossword", 40, 20, WHITE, g_texture_width,
-                             5, BLACK);
+    App app = {0};
+    app_init(&app, &target);
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Run the game
-    sm_start(&gs);
+    fsm_init(&app.fsm, &app.state_menu, &app);
+
     while (!WindowShouldClose())
     {
-        sm_update(&gs);
-        sm_render(&gs);
+        fsm_tick(&app.fsm, GetFrameTime());
     }
 
+    fsm_shutdown(&app.fsm);
     UnloadRenderTexture(target);
     CloseWindow();
 

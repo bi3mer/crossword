@@ -1,11 +1,11 @@
 CompileFlags:
   Add:
-    - -std=c99
-    - -I../deps/raylib/src
-    - -I../deps/staunch/Glow
-    - -I../deps/staunch/Exam
-    - -I../deps/staunch/Foundation
-    - -pedantic-errors
+    - -std=c11
+    - -D_POSIX_C_SOURCE=200809L
+    - -I/Users/colan/projects/games/crossword/deps/staunch/include
+    - -I/Users/colan/projects/games/crossword/deps/fsm.h
+    - -I/Users/colan/projects/games/crossword/src
+    - -I/opt/homebrew/include
     - -Wall
     - -Wextra
     - -Wpedantic
@@ -14,20 +14,14 @@ CompileFlags:
     - -Wconversion
     # - -Wdeclaration-after-statement
     - -Wdouble-promotion
-    - -Wduplicated-branches
-    - -Wduplicated-cond
     - -Wfloat-equal
     - -Wformat=2
     - -Wformat-nonliteral
     - -Wformat-security
-    - -Wformat-y2k
     - -Wimplicit-function-declaration
-    - -Winit-self
     - -Winline
-    - -Wlogical-op
     - -Wmissing-declarations
     - -Wmissing-field-initializers
-    - -Wmissing-include-dirs
     - -Wmissing-prototypes
     - -Wnested-externs
     - -Wnull-dereference
@@ -35,10 +29,7 @@ CompileFlags:
     - -Woverlength-strings
     - -Wpointer-arith
     - -Wredundant-decls
-    - -Wrestrict
     - -Wshadow
-    - -Wstack-protector
-    - -Wstrict-overflow=5
     - -Wstrict-prototypes
     - -Wswitch-default
     - -Wswitch-enum
@@ -51,13 +42,6 @@ CompileFlags:
     - -Wunused-parameter
     - -Wunused-value
     - -Wunused-variable
-    - -Wvariadic-macros
     - -Wvla
     - -Wwrite-strings
-    - -Wformat-overflow=2
-    - -Wformat-truncation=2
-    - -Wstringop-overflow=4
-    - -Wc90-c99-compat
-    - -Wtraditional
-    - -Wtraditional-conversion
     # - -Werror

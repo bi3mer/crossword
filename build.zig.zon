@@ -2,8 +2,6 @@
     .name = .game,
     .version = "0.0.1",
     .fingerprint = 0x232b318ccd67eb56,
-    .dependencies = .{
-        .raylib = .{ .path = "deps/raylib" },
-    },
+    .dependencies = .{},
     .paths = .{ "build.zig", "build.zig.zon", "src", "deps" },
 }

@@ -12,8 +12,8 @@ typedef struct
     Color color;
 } Centered_Text;
 
-extern void centered_text_init(Centered_Text *ct, char *text, int font_size,
-                               int y, Color color, int screen_width);
+extern void centered_text_init(Centered_Text *ct, char *text, int font_size, int y,
+                               Color color, int screen_width);
 
 extern void centered_text_render(Centered_Text *ct);
 
