@@ -12,7 +12,7 @@ SHELL_FILE="web/shell.html"
 mkdir -p "$BUILD_DIR"
 
 # Flags
-INCLUDES="-Isrc -Ideps/staunch/include -Ideps/fsm.h -I$RAYLIB_SRC -I$RAYLIB_SRC/external/glfw/include"
+INCLUDES="-Isrc -Ideps/staunch/include -I$RAYLIB_SRC -I$RAYLIB_SRC/external/glfw/include"
 DEFINES="-DPLATFORM_WEB -DGRAPHICS_API_OPENGL_ES2"
 GAME_CFLAGS="-std=c11 -Wall -Wextra -Os"
 RAYLIB_CFLAGS="-std=gnu11 -Os -w"

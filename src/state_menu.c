@@ -80,13 +80,6 @@ static void on_enter(FSM *fsm)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static void physics_tick(const FSM *fsm, const float fixed_dt)
-{
-    (void)fsm;
-    (void)fixed_dt;
-}
-
-/////////////////////////////////////////////////////////////////////////////
 static void tick(FSM *fsm, const float dt)
 {
     (void)dt;
@@ -175,7 +168,6 @@ static void render(const FSM *fsm)
 void state_menu_init(FSM_State *state)
 {
     state->on_enter = on_enter;
-    state->physics_tick = physics_tick;
     state->tick = tick;
     state->render = render;
     state->on_exit = NULL;

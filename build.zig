@@ -202,8 +202,6 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addIncludePath(b.path("deps/staunch/include"));
     addCSourceDir(b, exe.root_module, "deps/staunch/src", c_flags);
 
-    exe.root_module.addIncludePath(b.path("deps/fsm.h"));
-
     exe.root_module.addIncludePath(b.path("src"));
     addCSourceDir(b, exe.root_module, "src", c_flags);
 
@@ -241,14 +239,13 @@ pub fn build(b: *std.Build) void {
                 \\  {{
                 \\    "directory": "{s}",
                 \\    "file": "{s}/{s}/{s}",
-                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L -I{s}/deps/staunch/include -I{s}/deps/fsm.h -I{s}/src -I/opt/homebrew/include {s}/{s}/{s}"
+                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L -I{s}/deps/staunch/include -I{s}/src -I/opt/homebrew/include {s}/{s}/{s}"
                 \\  }}
             , .{
                 root,
                 root,
                 dir_path,
                 entry.name,
-                root,
                 root,
                 root,
                 root,
