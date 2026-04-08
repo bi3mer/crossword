@@ -22,6 +22,7 @@ static void on_enter(FSM *fsm)
     App *gs = (App *)fsm->ctx;
 
     gs->cw = (Crossword){0};
+    gs->cw.clue_index = gs->clue_index;
     cw_add_word(&gs->cw);
     cw_add_word(&gs->cw);
 
@@ -30,6 +31,8 @@ static void on_enter(FSM *fsm)
 
     block_centered_text_init(&gs->title, "Crossword", 40, 20, WHITE, g_texture_width, 5,
                              BLACK);
+
+    gs->start_time = GetTime();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -158,7 +161,32 @@ static void tick(FSM *fsm, const float dt)
 
                 if (complete)
                 {
-                    cw_add_word(cw);
+                    if (cw->num_entries < CW_MAX_ENTRIES)
+                    {
+                        cw_add_word(cw);
+                    }
+                    else
+                    {
+                        // Check if all entries are complete
+                        bool all_complete = true;
+                        for (size_t i = 0; i < cw->num_entries; ++i)
+                        {
+                            if (!cw->entries[i].complete)
+                            {
+                                all_complete = false;
+                                break;
+                            }
+                        }
+
+                        if (all_complete)
+                        {
+                            gs->end_time = GetTime();
+                            gs->clue_index = cw->clue_index;
+                            gs->selected_cell = selected_cell;
+                            fsm_transition(fsm, &gs->state_results);
+                            return;
+                        }
+                    }
                 }
             }
             else if (key == KEY_BACKSPACE)

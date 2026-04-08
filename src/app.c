@@ -2,6 +2,7 @@
 #include "const.h"
 #include "state_game.h"
 #include "state_menu.h"
+#include "state_results.h"
 
 void app_init(App *app, RenderTexture2D *target)
 {
@@ -15,4 +16,5 @@ void app_init(App *app, RenderTexture2D *target)
 
     state_menu_init(&app->state_menu);
     state_game_init(&app->state_game);
+    state_results_init(&app->state_results);
 }

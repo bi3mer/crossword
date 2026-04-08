@@ -17,6 +17,10 @@ typedef struct
     FSM fsm;
     FSM_State state_menu;
     FSM_State state_game;
+    FSM_State state_results;
+    double start_time;
+    double end_time;
+    size_t clue_index;
 } App;
 
 extern void app_init(App *app, RenderTexture2D *target);
