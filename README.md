@@ -39,8 +39,10 @@ Then open `http://localhost:8000` in your browser.
 
 ## Evaluation
 
-Headless build for running player persona evaluations against the crossword puzzle logic (no raylib required).
+Player persona evaluation simulates beginner, intermediate, and expert personas playing static, dynamic, and dynamic+hints game modes across multiple runs and rounds.
 
 ```bash
-zig build eval
+python3 scripts/analyze_eval.py
 ```
+
+This will automatically run `zig build eval` to generate `eval_results.csv` if it doesn't exist, then print analysis of solve rates, timing, surprisal progression, and game type comparisons.

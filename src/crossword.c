@@ -11,6 +11,12 @@
 
 #include "clues.h"
 
+#ifdef MODE_EVAL
+#define CW_LOG(...)
+#else
+#define CW_LOG(...) printf(__VA_ARGS__)
+#endif
+
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
     // this funciton should be called if the entry is already validated
@@ -266,20 +272,16 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
     if (valid_placements_found == 0)
     {
-#ifndef MODE_EVAL
-        printf("Failed to find placement for: %s\n", w->word);
-#endif
+        CW_LOG("Failed to find placement for: %s\n", w->word);
         return true;
     }
 
-#ifndef MODE_EVAL
-    printf("Found placement for: %s\n", w->word);
-#endif
+    CW_LOG("Found placement for: %s\n", w->word);
     cw_commit_word(cw, w, vertical, best_x, best_y);
     return false;
 }
 
-// optimization: store index  of last word to reduce search time
+// optimization: store index of last word to reduce search time
 bool cw_add_word(Crossword *cw)
 {
     s_assert(cw->num_entries <= CW_MAX_ENTRIES);
@@ -419,9 +421,7 @@ static bool cw_try_hint_on_entry(Crossword *cw, const Crossword_Entry *target)
 
     if (best != NULL)
     {
-#ifndef MODE_EVAL
-        printf("Found hint placement for: %s\n", best->word);
-#endif
+        CW_LOG("Found hint placement for: %s\n", best->word);
         cw_commit_word(cw, best, vertical, best_x, best_y);
         return true;
     }
