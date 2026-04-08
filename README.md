@@ -26,7 +26,7 @@ To make a release, run `scripts/make_release.sh`.
 ## Web Build
 
 ```bash
-./build_web.sh
+./scripts/build_web.sh
 ```
 
 Output goes to `web/`. To test locally:

@@ -17,6 +17,7 @@ build
 zig-out
 
 web-build
+build
 web/obj/
 web/index.html
 web/index.js
