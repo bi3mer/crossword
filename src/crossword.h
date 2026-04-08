@@ -41,5 +41,7 @@ typedef struct
 extern bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce);
 extern bool cw_place_word(Crossword *cw, const Word *w, const bool vertical);
 extern bool cw_add_word(Crossword *cw);
+extern bool cw_add_hint(Crossword *cw, size_t preferred_entry);
+extern bool cw_hint_available(const Crossword *cw);
 
 #endif

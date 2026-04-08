@@ -51,6 +51,169 @@ bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
     return valid;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Shared placement helpers
+
+// Try a specific word position against an entry, returning the number of
+// intersections if valid, or -1 if invalid.
+static i16 cw_check_placement(const Crossword *cw, const Word *w, bool vertical,
+                               i16 x, i16 y)
+{
+    const i16 dir_x = vertical ? 0 : 1;
+    const i16 dir_y = vertical ? 1 : 0;
+
+    // bounds check
+    if (x < 0 || y < 0 || x >= CW_DIM || y >= CW_DIM)
+        return -1;
+
+    // check start/end padding
+    if (vertical)
+    {
+        const i16 end_y = y + (i16)w->word_length - 1;
+        if (y - 1 < 0 || cw->cells[y - 1][x].correct_letter != 0)
+            return -1;
+        if (end_y + 1 >= CW_DIM || cw->cells[end_y + 1][x].correct_letter != 0)
+            return -1;
+    }
+    else
+    {
+        const i16 end_x = x + (i16)w->word_length - 1;
+        if (x - 1 < 0 || cw->cells[y][x - 1].correct_letter != 0)
+            return -1;
+        if (end_x + 1 >= CW_DIM || cw->cells[y][end_x + 1].correct_letter != 0)
+            return -1;
+    }
+
+    // validate each letter
+    i16 cx = x, cy = y;
+    i16 intersections = 0;
+    for (size_t i = 0; i < w->word_length; ++i)
+    {
+        const Cell *c = &cw->cells[cy][cx];
+        const char correct_letter = c->correct_letter;
+
+        if (correct_letter == 0)
+        {
+            if (vertical)
+            {
+                if (cx <= 0 || cw->cells[cy][cx - 1].correct_letter != 0)
+                    return -1;
+                if (cx >= CW_DIM - 1 || cw->cells[cy][cx + 1].correct_letter != 0)
+                    return -1;
+            }
+            else
+            {
+                if (cy <= 0 || cw->cells[cy - 1][cx].correct_letter != 0)
+                    return -1;
+                if (cy >= CW_DIM - 1 || cw->cells[cy + 1][cx].correct_letter != 0)
+                    return -1;
+            }
+        }
+        else if (correct_letter != w->word[i])
+        {
+            return -1;
+        }
+        else if ((vertical && c->vertical_entry != NULL) ||
+                 (!vertical && c->horizontal_entry != NULL))
+        {
+            return -1;
+        }
+        else
+        {
+            ++intersections;
+        }
+
+        cx += dir_x;
+        cy += dir_y;
+        if (cx >= CW_DIM || cy >= CW_DIM)
+            return -1;
+    }
+
+    return intersections;
+}
+
+// Commit a word placement at the given position.
+static void cw_commit_word(Crossword *cw, const Word *w, bool vertical,
+                            i16 x, i16 y)
+{
+    const i16 dir_x = vertical ? 0 : 1;
+    const i16 dir_y = vertical ? 1 : 0;
+
+    Crossword_Entry *e = cw->entries + cw->num_entries;
+    e->word = w->word;
+    e->start_x = x;
+    e->start_y = y;
+    e->clue_str = w->clues[s_rand_u8(0, 2)];
+    e->word_length = w->word_length;
+    e->dir_x = dir_x;
+    e->dir_y = dir_y;
+
+    for (size_t i = 0; i < w->word_length; ++i)
+    {
+        Cell *c = &cw->cells[y][x];
+        if (c->correct_letter == 0)
+        {
+            c->x = x;
+            c->y = y;
+            c->user_letter = ' ';
+            c->correct_letter = (char)toupper(w->word[i]);
+            c->locked = false;
+        }
+
+        if (vertical)
+            c->vertical_entry = e;
+        else
+            c->horizontal_entry = e;
+
+        x += dir_x;
+        y += dir_y;
+    }
+
+    ++cw->num_entries;
+}
+
+// Search for the best placement of a word intersecting with a single entry.
+// Returns true on success (sets *out_x, *out_y).
+static bool cw_find_placement_on_entry(const Crossword *cw, const Word *w,
+                                        bool vertical,
+                                        const Crossword_Entry *entry,
+                                        i16 *out_x, i16 *out_y)
+{
+    const i16 dir_x = vertical ? 0 : 1;
+    const i16 dir_y = vertical ? 1 : 0;
+    i16 most_intersections = 0;
+    bool found = false;
+
+    for (i16 entry_offset = 0; entry_offset < (i16)entry->word_length; ++entry_offset)
+    {
+        const i16 start_x = entry->start_x + entry->dir_x * entry_offset;
+        const i16 start_y = entry->start_y + entry->dir_y * entry_offset;
+
+        for (i16 word_offset = 0; word_offset < (i16)w->word_length; ++word_offset)
+        {
+            const i16 x = start_x - dir_x * word_offset;
+            const i16 y = start_y - dir_y * word_offset;
+
+            const i16 intersections = cw_check_placement(cw, w, vertical, x, y);
+            if (intersections <= 0)
+                continue;
+
+            if (intersections > most_intersections ||
+                (intersections == most_intersections && s_rand_bool()))
+            {
+                *out_x = x;
+                *out_y = y;
+                most_intersections = intersections;
+                found = true;
+            }
+        }
+    }
+
+    return found;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
 // returns true if there was an error with placement, otherwise false
 bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 {
@@ -58,13 +221,10 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
     const u8 max_valid_placements = 10;
     u8 valid_placements_found = 0;
-    i16 x, y, best_x, best_y;
+    i16 best_x = 0, best_y = 0;
 
     if (cw->num_entries == 0)
     {
-        // if there are no entries, there is no point looking for an
-        // interesection, and instead we'll just place the word in the center of
-        // the puzzle
         best_x = CW_DIM / 2;
         best_y = CW_DIM / 2;
         ++valid_placements_found;
@@ -72,14 +232,7 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     else
     {
         const size_t offset = (size_t)s_rand_u16(0, (u16)cw->num_entries - 1);
-        const i16 dir_x = vertical ? 0 : 1;
-        const i16 dir_y = vertical ? 1 : 0;
-
-        // potential evaluation:
-        // - Dynamic versus static with reveal
-        // - Is it better to have most intersections or not?
-        u8 most_intersections = 0;
-        u8 intersections;
+        i16 most_intersections = 0;
 
         for (u8 i = 0; i < cw->num_entries; ++i)
         {
@@ -92,203 +245,33 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
             else if (!vertical && e->dir_x == 1)
                 continue;
 
-            // Try to place the word
-            for (i16 entry_offset = 0; entry_offset < (i16)e->word_length; ++entry_offset)
+            i16 x, y;
+            if (cw_find_placement_on_entry(cw, w, vertical, e, &x, &y))
             {
-                const i16 start_x = e->start_x + e->dir_x * entry_offset;
-                const i16 start_y = e->start_y + e->dir_y * entry_offset;
-
-                for (i16 word_offset = 0; word_offset < (i16)w->word_length;
-                     ++word_offset)
+                const i16 intersections = cw_check_placement(cw, w, vertical, x, y);
+                if (intersections > most_intersections ||
+                    (intersections == most_intersections && s_rand_bool()))
                 {
-                    x = start_x - dir_x * word_offset;
-                    y = start_y - dir_y * word_offset;
-                    intersections = 0;
+                    best_x = x;
+                    best_y = y;
+                    most_intersections = intersections;
+                    ++valid_placements_found;
 
-                    // bounds checks
-                    if (x < 0 || y < 0 || x >= CW_DIM || y >= CW_DIM)
+                    if (valid_placements_found == max_valid_placements)
                         break;
-
-                    // Before checking every character, check that the start and end
-                    // locations are valid locations to place the word
-                    if (vertical)
-                    {
-                        const i16 end_y = y + (i16)w->word_length - 1;
-                        if (y - 1 < 0 || cw->cells[y - 1][x].correct_letter != 0)
-                            continue;
-
-                        if (end_y + 1 >= CW_DIM ||
-                            cw->cells[end_y + 1][x].correct_letter != 0)
-                            continue;
-                    }
-                    else
-                    {
-                        const i16 end_x = x + (i16)w->word_length - 1;
-                        if (x - 1 < 0 || cw->cells[y][x - 1].correct_letter != 0)
-                            continue;
-                        if (end_x + 1 >= CW_DIM ||
-                            cw->cells[y][end_x + 1].correct_letter != 0)
-                            continue;
-                    }
-
-                    bool valid = true;
-                    for (size_t word_index = 0; word_index < w->word_length; ++word_index)
-                    {
-                        const Cell *c = &cw->cells[y][x];
-                        const char correct_letter = c->correct_letter;
-
-                        if (correct_letter == 0)
-                        {
-                            if (vertical)
-                            {
-                                if (x <= 0 || cw->cells[y][x - 1].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-
-                                if (x >= CW_DIM - 1 ||
-                                    cw->cells[y][x + 1].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                if (y <= 0 || cw->cells[y - 1][x].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-
-                                if (y >= CW_DIM - 1 ||
-                                    cw->cells[y + 1][x].correct_letter != 0)
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-                        }
-                        else if (correct_letter != w->word[word_index])
-                        {
-                            valid = false;
-                            break;
-                        }
-                        else if ((vertical && c->vertical_entry != NULL) ||
-                                 (!vertical && c->horizontal_entry != NULL))
-                        {
-                            // Imagine this is our current state:
-                            //
-                            //               T
-                            //             M E   T
-                            //               N   O
-                            //               T O P
-                            //
-                            // Ignore te double use of top, and instead imagine
-                            // what would happen if we tried to place "DEPARTMENT"
-                            // We could get:
-                            //
-                            //               T
-                            // D E P A R T M E N T
-                            //               N   O
-                            //               T O P
-                            //
-                            // Overriding "ME" and that is why this if exists.
-
-                            valid = false;
-                            break;
-                        }
-                        else
-                        {
-                            ++intersections;
-                        }
-
-                        x += dir_x;
-                        y += dir_y;
-                        if (x >= CW_DIM || y >= CW_DIM)
-                        {
-                            valid = false;
-                            break;
-                        }
-                    }
-
-                    if (valid)
-                    {
-                        if (intersections > most_intersections ||
-                            (intersections == most_intersections && s_rand_bool()))
-                        {
-                            best_x = start_x - dir_x * word_offset;
-                            best_y = start_y - dir_y * word_offset;
-                            most_intersections = intersections;
-
-                            ++valid_placements_found;
-
-                            if (valid_placements_found == max_valid_placements)
-                                break;
-                        }
-                    }
                 }
-
-                if (valid_placements_found == max_valid_placements)
-                    break;
             }
-
-            if (valid_placements_found == max_valid_placements)
-                break;
         }
     }
 
     if (valid_placements_found == 0)
     {
         printf("Failed to find placement for: %s\n", w->word);
-        return true; // unable to place word (meaning, a new word is needed)
+        return true;
     }
-
-    x = best_x;
-    y = best_y;
 
     printf("Found placement for: %s\n", w->word);
-
-    Crossword_Entry *e = cw->entries + cw->num_entries;
-    e->word = w->word;
-    e->start_x = x;
-    e->start_y = y;
-    e->clue_str = w->clues[s_rand_u8(0, 2)];
-    e->word_length = w->word_length;
-
-    const i16 dir_x = !vertical;
-    const i16 dir_y = vertical;
-    e->dir_x = dir_x;
-    e->dir_y = dir_y;
-
-    Cell *c;
-    for (size_t i = 0; i < w->word_length; ++i)
-    {
-        c = &cw->cells[y][x];
-        if (c->correct_letter == 0)
-        {
-            c->x = x;
-            c->y = y;
-            c->user_letter = ' ';
-            c->correct_letter = (char)toupper(w->word[i]);
-            c->locked = false;
-        }
-
-        if (vertical)
-        {
-            c->vertical_entry = e;
-        }
-        else
-        {
-            c->horizontal_entry = e;
-        }
-
-        x += dir_x;
-        y += dir_y;
-    }
-
-    ++cw->num_entries;
+    cw_commit_word(cw, w, vertical, best_x, best_y);
     return false;
 }
 
@@ -300,8 +283,7 @@ bool cw_add_word(Crossword *cw)
     bool placed_word = false;
     double probability_of_skip = 0.2;
 
-    // for (; cw->clue_index < words_count; ++cw->clue_index)
-    for (; cw->clue_index < 100; ++cw->clue_index)
+    for (; cw->clue_index < words_count; ++cw->clue_index)
     {
         const Word *w = &words[cw->clue_index];
 
@@ -358,4 +340,101 @@ bool cw_add_word(Crossword *cw)
     }
 
     return placed_word;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Hint placement
+
+static bool cw_is_word_used(const Crossword *cw, const char *word)
+{
+    for (size_t i = 0; i < cw->num_entries; ++i)
+    {
+        if (strcmp(cw->entries[i].word, word) == 0)
+            return true;
+    }
+    return false;
+}
+
+bool cw_hint_available(const Crossword *cw)
+{
+    if (cw->num_entries >= CW_MAX_ENTRIES)
+        return false;
+
+    bool has_unsolved = false;
+    for (size_t i = 0; i < cw->num_entries; ++i)
+    {
+        if (!cw->entries[i].complete)
+        {
+            has_unsolved = true;
+            break;
+        }
+    }
+
+    if (!has_unsolved)
+        return false;
+
+    for (size_t wi = 0; wi < words_count; ++wi)
+    {
+        const Word *w = &words[wi];
+        if (strlen(w->word) <= 3)
+            continue;
+        if (!cw_is_word_used(cw, w->word))
+            return true;
+    }
+
+    return false;
+}
+
+static bool cw_try_hint_on_entry(Crossword *cw, const Crossword_Entry *target)
+{
+    const bool vertical = (target->dir_y == 1) ? false : true;
+
+    for (size_t wi = 0; wi < 100 && wi < words_count; ++wi)
+    {
+        const Word *w = &words[wi];
+        if (strlen(w->word) <= 3)
+            continue;
+        if (cw_is_word_used(cw, w->word))
+            continue;
+
+        i16 x, y;
+        if (cw_find_placement_on_entry(cw, w, vertical, target, &x, &y))
+        {
+            printf("Found hint placement for: %s\n", w->word);
+            cw_commit_word(cw, w, vertical, x, y);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool cw_add_hint(Crossword *cw, size_t preferred_entry)
+{
+    if (cw->num_entries >= CW_MAX_ENTRIES)
+        return false;
+
+    // Try preferred entry first
+    if (preferred_entry < cw->num_entries &&
+        !cw->entries[preferred_entry].complete)
+    {
+        if (cw_try_hint_on_entry(cw, &cw->entries[preferred_entry]))
+            return true;
+    }
+
+    // Fall back to other unsolved entries
+    for (size_t ei = 0; ei < cw->num_entries; ++ei)
+    {
+        if (ei == preferred_entry)
+            continue;
+
+        const Crossword_Entry *target = &cw->entries[ei];
+        if (target->complete)
+            continue;
+
+        if (cw_try_hint_on_entry(cw, target))
+            return true;
+    }
+
+    return false;
 }

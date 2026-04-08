@@ -33,6 +33,11 @@ static void on_enter(FSM *fsm)
                              BLACK);
 
     gs->start_time = GetTime();
+    gs->last_solve_time = gs->start_time;
+    gs->show_hint_button = false;
+
+    for (size_t i = 0; i < CW_MAX_ENTRIES; ++i)
+        gs->time_on_entry[i] = 0.0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -45,12 +50,27 @@ static void physics_tick(const FSM *fsm, const float fixed_dt)
 /////////////////////////////////////////////////////////////////////////////
 static void tick(FSM *fsm, const float dt)
 {
-    (void)dt;
-
     App *gs = (App *)fsm->ctx;
     Camera2D *c = &gs->camera;
     Crossword *cw = &gs->cw;
     Cell *selected_cell = gs->selected_cell;
+
+    // Track time on current entry
+    {
+        const Crossword_Entry *ce = cw->vertical_mode
+                                        ? selected_cell->vertical_entry
+                                        : selected_cell->horizontal_entry;
+        if (ce != NULL && !ce->complete)
+        {
+            size_t idx = (size_t)(ce - cw->entries);
+            gs->time_on_entry[idx] += dt;
+        }
+    }
+
+    if (!gs->show_hint_button && GetTime() - gs->last_solve_time >= 60.0)
+    {
+        gs->show_hint_button = cw_hint_available(&gs->cw);
+    }
 
     // mouse input
     {
@@ -66,8 +86,51 @@ static void tick(FSM *fsm, const float dt)
             c->offset.y = s_clamp_f32(cam_min_y, new_y, cam_max_y);
         }
 
+        // Check hint button hover
+        gs->hint_hovered = false;
+        if (gs->show_hint_button)
+        {
+            const char *hint_label = "Add Hint";
+            const int hint_font = 20;
+            const int hint_w = MeasureText(hint_label, hint_font) + 20;
+            const int hint_h = 34;
+            const int hint_x = g_texture_width - hint_w - 10;
+            const int hint_y = 10;
+
+            const float scale_x = (float)GetScreenWidth() / g_texture_width;
+            const float scale_y = (float)GetScreenHeight() / g_texture_height;
+            const Vector2 mouse = GetMousePosition();
+            const int mx = (int)(mouse.x / scale_x);
+            const int my = (int)(mouse.y / scale_y);
+
+            gs->hint_hovered = (mx >= hint_x && mx <= hint_x + hint_w &&
+                                my >= hint_y && my <= hint_y + hint_h);
+        }
+
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
+            if (gs->hint_hovered)
+            {
+                // Find unsolved entry with most time spent
+                size_t preferred = 0;
+                double max_time = -1.0;
+                for (size_t i = 0; i < cw->num_entries; ++i)
+                {
+                    if (!cw->entries[i].complete &&
+                        gs->time_on_entry[i] > max_time)
+                    {
+                        max_time = gs->time_on_entry[i];
+                        preferred = i;
+                    }
+                }
+
+                cw_add_hint(cw, preferred);
+                gs->show_hint_button = false;
+                gs->last_solve_time = GetTime();
+                gs->selected_cell = selected_cell;
+                return;
+            }
+
             const Vector2 mouse_position =
                 GetScreenToWorld2D(GetMousePosition(), gs->camera);
 
@@ -161,6 +224,9 @@ static void tick(FSM *fsm, const float dt)
 
                 if (complete)
                 {
+                    gs->last_solve_time = GetTime();
+                    gs->show_hint_button = false;
+
                     if (cw->num_entries < CW_MAX_ENTRIES)
                     {
                         if (!cw_add_word(cw))
@@ -388,6 +454,21 @@ static void render(const FSM *fsm)
             while (*p == ' ')
                 ++p;
         }
+    }
+
+    if (gs->show_hint_button)
+    {
+        const char *hint_label = "Add Hint";
+        const int hint_font = 20;
+        const int hint_w = MeasureText(hint_label, hint_font) + 20;
+        const int hint_h = 34;
+        const int hint_x = g_texture_width - hint_w - 10;
+        const int hint_y = 10;
+
+        const Color bg = gs->hint_hovered ? LIGHTGRAY : WHITE;
+        DrawRectangle(hint_x, hint_y, hint_w, hint_h, bg);
+        DrawRectangleLinesEx((Rectangle){hint_x, hint_y, hint_w, hint_h}, 2, BLACK);
+        DrawText(hint_label, hint_x + 10, hint_y + 7, hint_font, BLACK);
     }
 
     EndTextureMode();

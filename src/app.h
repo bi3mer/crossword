@@ -21,6 +21,10 @@ typedef struct
     FSM_State state_results;
     double start_time;
     double end_time;
+    double last_solve_time;
+    bool show_hint_button;
+    bool hint_hovered;
+    double time_on_entry[CW_MAX_ENTRIES];
     size_t clue_index;
 } App;
 
