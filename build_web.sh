@@ -66,4 +66,20 @@ emcc $GAME_OBJS $RAYLIB_OBJS \
     -sEXPORTED_RUNTIME_METHODS=ccall
 
 echo "Web build complete: $BUILD_DIR/index.html"
-echo "To test: cd $BUILD_DIR && python3 -m http.server"
+
+# Deploy to Hugo site
+HUGO_SITE="$HOME/projects/bi3mer.github.io"
+DEPLOY_DIR="$HUGO_SITE/static/crossword"
+
+if [ -d "$HUGO_SITE" ]; then
+    mkdir -p "$DEPLOY_DIR"
+    cp "$BUILD_DIR/index.html" "$DEPLOY_DIR/"
+    cp "$BUILD_DIR/index.js" "$DEPLOY_DIR/"
+    cp "$BUILD_DIR/index.wasm" "$DEPLOY_DIR/"
+    cp "$BUILD_DIR/index.data" "$DEPLOY_DIR/"
+    echo "Deployed to $DEPLOY_DIR"
+else
+    echo "Hugo site not found at $HUGO_SITE, skipping deploy"
+fi
+
+echo "To test locally: cd $BUILD_DIR && python3 -m http.server"
