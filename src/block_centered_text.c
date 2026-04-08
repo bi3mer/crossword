@@ -20,7 +20,7 @@ void block_centered_text_init(Block_Centered_Text *bct, char *text, int font_siz
     bct->block.height = (int)v.y + block_border_size * 2;
 }
 
-void block_centered_text_render(Block_Centered_Text *bct)
+void block_centered_text_render(const Block_Centered_Text *bct)
 {
     DrawRectangleRec(bct->block, bct->block_color);
     DrawText(bct->text, bct->_x, bct->y, bct->font_size, bct->text_color);

@@ -248,7 +248,6 @@ static void render(const FSM *fsm)
     // Hints toggle
     {
         const int iy = item_y(0);
-        const bool is_selected = (selected_item == 0);
         const int toggle_x = item_x() + item_w - 80;
         const int toggle_y = iy + (item_h - 30) / 2;
 
@@ -300,10 +299,8 @@ static void render(const FSM *fsm)
                 pct_str++;
         }
 
-        const int pct_w = MeasureText(pct_str, 16);
         DrawText(pct_str, sx + slider_w + 10, iy + (item_h - 16) / 2, 16,
                  is_selected ? BLACK : LIGHTGRAY);
-        (void)pct_w;
     }
 
     EndTextureMode();

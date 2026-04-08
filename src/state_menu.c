@@ -60,10 +60,7 @@ static int button_x(void)
 
 static int button_y(int index)
 {
-    const int total_h =
-        MENU_BUTTON_COUNT * button_h + (MENU_BUTTON_COUNT - 1) * button_spacing;
     const int start_y = g_texture_height / 2 + 10;
-    (void)total_h;
     return start_y + index * (button_h + button_spacing);
 }
 
