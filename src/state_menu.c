@@ -4,13 +4,15 @@
 
 #include "raylib.h"
 
-#define MENU_BUTTON_COUNT 2
+#define MENU_BUTTON_COUNT 4
 
 static int selected_button;
 
 static const char *button_labels[MENU_BUTTON_COUNT] = {
     "Dynamic Puzzle",
     "Static Puzzle",
+    "Settings",
+    "Quit",
 };
 
 static const int button_w = 300;
@@ -18,16 +20,25 @@ static const int button_h = 50;
 static const int button_font_size = 24;
 static const int button_spacing = 20;
 
-static FSM_State *selected_state(App *app)
+static void activate_button(FSM *fsm, App *app)
 {
+    SetSoundVolume(app->sfx_type, app->sfx_volume);
+    PlaySound(app->sfx_type);
+
     switch (selected_button)
     {
     case 0:
-        return &app->state_dynamic_game;
+        fsm_transition(fsm, &app->state_dynamic_game);
+        break;
     case 1:
-        return &app->state_static_game;
-    default:
-        return &app->state_dynamic_game;
+        fsm_transition(fsm, &app->state_static_game);
+        break;
+    case 2:
+        fsm_transition(fsm, &app->state_settings);
+        break;
+    case 3:
+        app->should_quit = true;
+        break;
     }
 }
 
@@ -48,7 +59,12 @@ static int button_y(int index)
 /////////////////////////////////////////////////////////////////////////////
 static void on_enter(FSM *fsm)
 {
-    (void)fsm;
+    App *app = (App *)fsm->ctx;
+    if (app->resuming)
+    {
+        app->resuming = false;
+        return;
+    }
     selected_button = 0;
 }
 
@@ -95,7 +111,7 @@ static void tick(FSM *fsm, const float dt)
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
                 App *app = (App *)fsm->ctx;
-                fsm_transition(fsm, selected_state(app));
+                activate_button(fsm, app);
                 return;
             }
         }
@@ -104,7 +120,7 @@ static void tick(FSM *fsm, const float dt)
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))
     {
         App *app = (App *)fsm->ctx;
-        fsm_transition(fsm, selected_state(app));
+        activate_button(fsm, app);
         return;
     }
 }

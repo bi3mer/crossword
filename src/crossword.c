@@ -388,22 +388,36 @@ bool cw_hint_available(const Crossword *cw)
 static bool cw_try_hint_on_entry(Crossword *cw, const Crossword_Entry *target)
 {
     const bool vertical = (target->dir_y == 1) ? false : true;
+    const size_t limit = words_count < 200 ? words_count : 200;
 
-    for (size_t wi = 0; wi < 100 && wi < words_count; ++wi)
+    // Collect candidates from low-surprisal words, pick the shortest that fits
+    const Word *best = NULL;
+    i16 best_x = 0, best_y = 0;
+
+    for (size_t wi = 0; wi < limit; ++wi)
     {
         const Word *w = &words[wi];
-        if (strlen(w->word) <= 3)
+        if (w->word_length <= 3)
             continue;
         if (cw_is_word_used(cw, w->word))
+            continue;
+        if (best != NULL && w->word_length >= best->word_length)
             continue;
 
         i16 x, y;
         if (cw_find_placement_on_entry(cw, w, vertical, target, &x, &y))
         {
-            printf("Found hint placement for: %s\n", w->word);
-            cw_commit_word(cw, w, vertical, x, y);
-            return true;
+            best = w;
+            best_x = x;
+            best_y = y;
         }
+    }
+
+    if (best != NULL)
+    {
+        printf("Found hint placement for: %s\n", best->word);
+        cw_commit_word(cw, best, vertical, best_x, best_y);
+        return true;
     }
 
     return false;

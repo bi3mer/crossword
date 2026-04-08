@@ -16,10 +16,27 @@ static const f64 cam_max_x = 1000;
 static const f64 cam_min_y = -300;
 static const f64 cam_max_y = 700;
 
+static const char *settings_label = "Settings";
+static const int settings_font = 20;
+static const int settings_h = 34;
+static const int settings_x = 10;
+static const int settings_y = 10;
+static bool settings_hovered;
+
 /////////////////////////////////////////////////////////////////////////////
 static void on_enter(FSM *fsm)
 {
     App *gs = (App *)fsm->ctx;
+
+    if (gs->resuming)
+    {
+        gs->resuming = false;
+        return;
+    }
+
+    gs->camera = (Camera2D){0};
+    gs->camera.target.x = g_cell_width * CW_DIM / 2.f - 250;
+    gs->camera.target.y = g_cell_height * CW_DIM / 2.f - 250;
 
     gs->cw = (Crossword){0};
     gs->cw.clue_index = gs->clue_index;
@@ -67,7 +84,8 @@ static void tick(FSM *fsm, const float dt)
         }
     }
 
-    if (!gs->show_hint_button && GetTime() - gs->last_solve_time >= 60.0)
+    if (gs->hints_enabled && !gs->show_hint_button &&
+        GetTime() - gs->last_solve_time >= 30.0)
     {
         gs->show_hint_button = cw_hint_available(&gs->cw);
     }
@@ -86,29 +104,44 @@ static void tick(FSM *fsm, const float dt)
             c->offset.y = s_clamp_f32(cam_min_y, new_y, cam_max_y);
         }
 
-        // Check hint button hover
-        gs->hint_hovered = false;
-        if (gs->show_hint_button)
+        // Check button hovers
         {
-            const char *hint_label = "Add Hint";
-            const int hint_font = 20;
-            const int hint_w = MeasureText(hint_label, hint_font) + 20;
-            const int hint_h = 34;
-            const int hint_x = g_texture_width - hint_w - 10;
-            const int hint_y = 10;
-
             const float scale_x = (float)GetScreenWidth() / g_texture_width;
             const float scale_y = (float)GetScreenHeight() / g_texture_height;
             const Vector2 mouse = GetMousePosition();
             const int mx = (int)(mouse.x / scale_x);
             const int my = (int)(mouse.y / scale_y);
 
-            gs->hint_hovered = (mx >= hint_x && mx <= hint_x + hint_w &&
-                                my >= hint_y && my <= hint_y + hint_h);
+            const int settings_w = MeasureText(settings_label, settings_font) + 20;
+            settings_hovered = (mx >= settings_x && mx <= settings_x + settings_w &&
+                                my >= settings_y && my <= settings_y + settings_h);
+
+            gs->hint_hovered = false;
+            if (gs->show_hint_button)
+            {
+                const char *hint_label = "Add Hint";
+                const int hint_font = 20;
+                const int hint_w = MeasureText(hint_label, hint_font) + 20;
+                const int hint_h = 34;
+                const int hint_x = g_texture_width - hint_w - 10;
+                const int hint_y = 10;
+
+                gs->hint_hovered = (mx >= hint_x && mx <= hint_x + hint_w &&
+                                    my >= hint_y && my <= hint_y + hint_h);
+            }
         }
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
+            if (settings_hovered)
+            {
+                SetSoundVolume(gs->sfx_type, gs->sfx_volume);
+                PlaySound(gs->sfx_type);
+                gs->selected_cell = selected_cell;
+                fsm_transition(fsm, &gs->state_settings);
+                return;
+            }
+
             if (gs->hint_hovered)
             {
                 // Find unsolved entry with most time spent
@@ -180,6 +213,15 @@ static void tick(FSM *fsm, const float dt)
         c->zoom = s_clamp_f32(g_min_zoom, c->zoom, g_max_zoom);
     }
 
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        SetSoundVolume(gs->sfx_type, gs->sfx_volume);
+        PlaySound(gs->sfx_type);
+        gs->selected_cell = selected_cell;
+        fsm_transition(fsm, &gs->state_settings);
+        return;
+    }
+
     // keyboard input
     {
         int key = GetKeyPressed();
@@ -190,6 +232,8 @@ static void tick(FSM *fsm, const float dt)
                 if (!selected_cell->locked)
                 {
                     selected_cell->user_letter = (char)toupper(key);
+                    SetSoundVolume(gs->sfx_type, gs->sfx_volume);
+                    PlaySound(gs->sfx_type);
                 }
 
                 bool complete = false;
@@ -224,6 +268,8 @@ static void tick(FSM *fsm, const float dt)
 
                 if (complete)
                 {
+                    SetSoundVolume(gs->sfx_solve, gs->sfx_volume);
+                    PlaySound(gs->sfx_solve);
                     gs->last_solve_time = GetTime();
                     gs->show_hint_button = false;
 
@@ -264,6 +310,8 @@ static void tick(FSM *fsm, const float dt)
                 if (!selected_cell->locked)
                 {
                     selected_cell->user_letter = ' ';
+                    SetSoundVolume(gs->sfx_type, gs->sfx_volume);
+                    PlaySound(gs->sfx_type);
                 }
 
                 if (cw->vertical_mode)
@@ -454,6 +502,15 @@ static void render(const FSM *fsm)
             while (*p == ' ')
                 ++p;
         }
+    }
+
+    // Settings button
+    {
+        const int sw = MeasureText(settings_label, settings_font) + 20;
+        const Color bg = settings_hovered ? LIGHTGRAY : WHITE;
+        DrawRectangle(settings_x, settings_y, sw, settings_h, bg);
+        DrawRectangleLinesEx((Rectangle){settings_x, settings_y, sw, settings_h}, 2, BLACK);
+        DrawText(settings_label, settings_x + 10, settings_y + 7, settings_font, BLACK);
     }
 
     if (gs->show_hint_button)

@@ -19,6 +19,7 @@ typedef struct
     FSM_State state_dynamic_game;
     FSM_State state_static_game;
     FSM_State state_results;
+    FSM_State state_settings;
     double start_time;
     double end_time;
     double last_solve_time;
@@ -26,6 +27,16 @@ typedef struct
     bool hint_hovered;
     double time_on_entry[CW_MAX_ENTRIES];
     size_t clue_index;
+    bool should_quit;
+    bool resuming;
+
+    // Settings
+    bool hints_enabled;
+    float sfx_volume;
+
+    // Sound effects
+    Sound sfx_type;
+    Sound sfx_solve;
 } App;
 
 extern void app_init(App *app, RenderTexture2D *target);
