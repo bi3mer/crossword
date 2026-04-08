@@ -266,11 +266,15 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
 
     if (valid_placements_found == 0)
     {
+#ifndef MODE_EVAL
         printf("Failed to find placement for: %s\n", w->word);
+#endif
         return true;
     }
 
+#ifndef MODE_EVAL
     printf("Found placement for: %s\n", w->word);
+#endif
     cw_commit_word(cw, w, vertical, best_x, best_y);
     return false;
 }
@@ -415,7 +419,9 @@ static bool cw_try_hint_on_entry(Crossword *cw, const Crossword_Entry *target)
 
     if (best != NULL)
     {
+#ifndef MODE_EVAL
         printf("Found hint placement for: %s\n", best->word);
+#endif
         cw_commit_word(cw, best, vertical, best_x, best_y);
         return true;
     }

@@ -223,17 +223,22 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    const eval_c_flags: []const []const u8 = if (is_release)
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-DMODE_PRODUCTION", "-DMODE_EVAL", "-D_POSIX_C_SOURCE=200809L" }
+    else
+        &.{ "-std=c11", "-Wall", "-Wextra", "-pedantic", "-DMODE_EVAL", "-D_POSIX_C_SOURCE=200809L" };
+
     eval_exe.root_module.addIncludePath(b.path("deps/staunch/include"));
-    addCSourceDir(b, eval_exe.root_module, "deps/staunch/src", c_flags);
+    addCSourceDir(b, eval_exe.root_module, "deps/staunch/src", eval_c_flags);
 
     eval_exe.root_module.addIncludePath(b.path("src"));
     eval_exe.root_module.addCSourceFile(.{
         .file = b.path("src/eval_main.c"),
-        .flags = c_flags,
+        .flags = eval_c_flags,
     });
     eval_exe.root_module.addCSourceFile(.{
         .file = b.path("src/crossword.c"),
-        .flags = c_flags,
+        .flags = eval_c_flags,
     });
 
     b.installArtifact(eval_exe);
