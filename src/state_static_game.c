@@ -235,6 +235,7 @@ static void tick(FSM *fsm, const float dt)
                     {
                         gs->end_time = GetTime();
                         gs->clue_index = cw->clue_index;
+                        app_save(gs);
                         gs->selected_cell = selected_cell;
                         fsm_transition(fsm, &gs->state_results);
                         return;

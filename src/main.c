@@ -11,6 +11,7 @@
 
 #include "app.h"
 #include "const.h"
+#include "save.h"
 
 #include "raylib.h"
 
@@ -41,6 +42,11 @@ int main(void)
 
     app = (App){0};
     app_init(&app, &target);
+
+    Save_Data save = save_read();
+    app.clue_index = save.clue_index;
+    app.sfx_volume = save.sfx_volume;
+    app.hints_enabled = save.hints_enabled;
 
 #if defined(PLATFORM_WEB)
     app.sfx_type = LoadSound("assets/type.wav");

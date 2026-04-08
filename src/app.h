@@ -40,6 +40,7 @@ typedef struct
 } App;
 
 extern void app_init(App *app, RenderTexture2D *target);
+extern void app_save(const App *app);
 
 // Helper: blit the render texture to screen (shared by all states)
 static inline void app_render(const App *app)

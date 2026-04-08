@@ -20,6 +20,7 @@ static bool is_in_game(const FSM *fsm, const App *app)
 
 static void go_back(FSM *fsm, App *app)
 {
+    app_save(app);
     app->resuming = true;
     fsm_revert(fsm);
 }
@@ -139,7 +140,7 @@ static void tick(FSM *fsm, const float dt)
         {
             SetSoundVolume(app->sfx_type, app->sfx_volume);
             PlaySound(app->sfx_type);
-            app->clue_index = 0;
+            app_save(app);
             fsm_transition(fsm, &app->state_menu);
             return;
         }
@@ -173,6 +174,7 @@ static void tick(FSM *fsm, const float dt)
                 {
                     SetSoundVolume(app->sfx_type, app->sfx_volume);
                     PlaySound(app->sfx_type);
+                    app_save(app);
                     fsm_transition(fsm, &app->state_menu);
                     return;
                 }

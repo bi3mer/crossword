@@ -1,5 +1,6 @@
 #include "app.h"
 #include "const.h"
+#include "save.h"
 #include "state_dynamic_game.h"
 #include "state_menu.h"
 #include "state_results.h"
@@ -24,4 +25,14 @@ void app_init(App *app, RenderTexture2D *target)
     state_static_game_init(&app->state_static_game);
     state_results_init(&app->state_results);
     state_settings_init(&app->state_settings);
+}
+
+void app_save(const App *app)
+{
+    Save_Data data = {
+        .clue_index = app->clue_index,
+        .sfx_volume = app->sfx_volume,
+        .hints_enabled = app->hints_enabled,
+    };
+    save_write(&data);
 }

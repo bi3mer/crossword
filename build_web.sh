@@ -43,12 +43,14 @@ for src in $RAYLIB_SRCS; do
     RAYLIB_OBJS="$RAYLIB_OBJS $obj"
 done
 
-# Compile game + staunch with c11
+# Compile game + staunch with c11 (save.c needs gnu11 for EM_ASM)
 echo "Compiling game..."
 GAME_OBJS=""
 for src in $GAME_SRCS $STAUNCH_SRCS; do
     obj="$OBJ_DIR/$(basename "${src%.c}.o")"
-    emcc $GAME_CFLAGS $INCLUDES $DEFINES -c "$src" -o "$obj"
+    flags="$GAME_CFLAGS"
+    case "$src" in */save.c) flags="-std=gnu11 -Wall -Wextra -Os" ;; esac
+    emcc $flags $INCLUDES $DEFINES -c "$src" -o "$obj"
     GAME_OBJS="$GAME_OBJS $obj"
 done
 

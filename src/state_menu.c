@@ -28,23 +28,28 @@ static const int button_spacing = 20;
 
 static void activate_button(FSM *fsm, App *app)
 {
-    SetSoundVolume(app->sfx_type, app->sfx_volume);
-    PlaySound(app->sfx_type);
-
     switch (selected_button)
     {
     case 0:
+        SetSoundVolume(app->sfx_type, app->sfx_volume);
+        PlaySound(app->sfx_type);
         fsm_transition(fsm, &app->state_dynamic_game);
         break;
     case 1:
+        SetSoundVolume(app->sfx_type, app->sfx_volume);
+        PlaySound(app->sfx_type);
         fsm_transition(fsm, &app->state_static_game);
         break;
     case 2:
+        SetSoundVolume(app->sfx_type, app->sfx_volume);
+        PlaySound(app->sfx_type);
         fsm_transition(fsm, &app->state_settings);
         break;
+#if !defined(PLATFORM_WEB)
     case 3:
         app->should_quit = true;
         break;
+#endif
     }
 }
 
