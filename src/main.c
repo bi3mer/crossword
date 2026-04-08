@@ -16,6 +16,8 @@
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
+#else
+#include "assets.h"
 #endif
 
 static App app;
@@ -40,8 +42,21 @@ int main(void)
     app = (App){0};
     app_init(&app, &target);
 
+#if defined(PLATFORM_WEB)
     app.sfx_type = LoadSound("assets/type.wav");
     app.sfx_solve = LoadSound("assets/solve.wav");
+#else
+    {
+        Wave w;
+        w = LoadWaveFromMemory(".wav", asset_type_wav, asset_type_wav_size);
+        app.sfx_type = LoadSoundFromWave(w);
+        UnloadWave(w);
+
+        w = LoadWaveFromMemory(".wav", asset_solve_wav, asset_solve_wav_size);
+        app.sfx_solve = LoadSoundFromWave(w);
+        UnloadWave(w);
+    }
+#endif
 
     fsm_init(&app.fsm, &app.state_menu, &app);
 

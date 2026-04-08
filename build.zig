@@ -132,6 +132,49 @@ pub fn build(b: *std.Build) void {
     };
 
     ///////////////////////////////////////////////////////////////////////////
+    // Embed assets into a header
+    const assets_path = "src" ++ std.fs.path.sep_str ++ "assets.h";
+    std.fs.cwd().access(assets_path, .{}) catch {
+        var assets_file = std.fs.cwd().createFile(assets_path, .{}) catch @panic("failed to create assets.h");
+        defer assets_file.close();
+
+        assets_file.writeAll(
+            \\#ifndef _ASSETS_
+            \\#define _ASSETS_
+            \\
+            \\
+        ) catch @panic("write failed");
+
+        const asset_files = [_]struct { name: []const u8, path: []const u8 }{
+            .{ .name = "asset_type_wav", .path = "assets/type.wav" },
+            .{ .name = "asset_solve_wav", .path = "assets/solve.wav" },
+        };
+
+        for (asset_files) |asset| {
+            const data = std.fs.cwd().readFileAlloc(std.heap.page_allocator, asset.path, 1024 * 1024) catch @panic("failed to read asset");
+            defer std.heap.page_allocator.free(data);
+
+            var buf: [128]u8 = undefined;
+            var len = std.fmt.bufPrint(&buf, "static const unsigned char {s}[] = {{\n", .{asset.name}) catch @panic("fmt");
+            assets_file.writeAll(len[0..len.len]) catch @panic("write");
+
+            for (data, 0..) |byte, i| {
+                var byte_buf: [8]u8 = undefined;
+                const byte_str = std.fmt.bufPrint(&byte_buf, "0x{x:0>2},", .{byte}) catch @panic("fmt");
+                assets_file.writeAll(byte_str) catch @panic("write");
+                if ((i + 1) % 16 == 0) assets_file.writeAll("\n") catch @panic("write");
+            }
+
+            assets_file.writeAll("\n};\n") catch @panic("write");
+
+            len = std.fmt.bufPrint(&buf, "static const int {s}_size = {d};\n\n", .{ asset.name, data.len }) catch @panic("fmt");
+            assets_file.writeAll(len[0..len.len]) catch @panic("write");
+        }
+
+        assets_file.writeAll("#endif\n") catch @panic("write");
+    };
+
+    ///////////////////////////////////////////////////////////////////////////
     // Create the build
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
