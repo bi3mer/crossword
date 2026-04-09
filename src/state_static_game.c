@@ -111,7 +111,7 @@ static void tick(FSM *fsm, const float dt)
                 GetScreenToWorld2D(GetMousePosition(), gs->camera);
 
             const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
-            const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
+            const i16 cell_y = (i16)(mouse_position.y / g_cell_height);
 
             if (s_in_between_i16(0, cell_x, CW_DIM - 1) &&
                 s_in_between_i16(0, cell_y, CW_DIM - 1) &&
@@ -332,7 +332,11 @@ static void tick(FSM *fsm, const float dt)
                         if (next->correct_letter != 0)
                         {
                             selected_cell = next;
-                            cw->vertical_mode = vertical;
+
+                            if (vertical && next->vertical_entry != NULL)
+                                cw->vertical_mode = true;
+                            else if (!vertical && next->horizontal_entry != NULL)
+                                cw->vertical_mode = false;
                         }
                     }
                 }

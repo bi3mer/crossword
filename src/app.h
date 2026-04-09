@@ -25,6 +25,7 @@ typedef struct
     double last_solve_time;
     bool show_hint_button;
     bool hint_hovered;
+    bool difficulty_reduced;
     double time_on_entry[CW_MAX_ENTRIES];
     size_t clue_index;
     bool should_quit;

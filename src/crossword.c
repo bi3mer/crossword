@@ -19,8 +19,10 @@
 
 bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 {
-    // this funciton should be called if the entry is already validated
-    s_assert(!ce->complete);
+    if (ce->complete)
+    {
+        return true;
+    }
 
     i16 x = ce->start_x;
     i16 y = ce->start_y;
@@ -62,8 +64,8 @@ bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 
 // Try a specific word position against an entry, returning the number of
 // intersections if valid, or -1 if invalid.
-static i16 cw_check_placement(const Crossword *cw, const Word *w, bool vertical,
-                               i16 x, i16 y)
+static i16 cw_check_placement(const Crossword *cw, const Word *w, bool vertical, i16 x,
+                              i16 y)
 {
     const i16 dir_x = vertical ? 0 : 1;
     const i16 dir_y = vertical ? 1 : 0;
@@ -139,8 +141,7 @@ static i16 cw_check_placement(const Crossword *cw, const Word *w, bool vertical,
 }
 
 // Commit a word placement at the given position.
-static void cw_commit_word(Crossword *cw, const Word *w, bool vertical,
-                            i16 x, i16 y)
+static void cw_commit_word(Crossword *cw, const Word *w, bool vertical, i16 x, i16 y)
 {
     const i16 dir_x = vertical ? 0 : 1;
     const i16 dir_y = vertical ? 1 : 0;
@@ -180,10 +181,9 @@ static void cw_commit_word(Crossword *cw, const Word *w, bool vertical,
 
 // Search for the best placement of a word intersecting with a single entry.
 // Returns true on success (sets *out_x, *out_y).
-static bool cw_find_placement_on_entry(const Crossword *cw, const Word *w,
-                                        bool vertical,
-                                        const Crossword_Entry *entry,
-                                        i16 *out_x, i16 *out_y)
+static bool cw_find_placement_on_entry(const Crossword *cw, const Word *w, bool vertical,
+                                       const Crossword_Entry *entry, i16 *out_x,
+                                       i16 *out_y)
 {
     const i16 dir_x = vertical ? 0 : 1;
     const i16 dir_y = vertical ? 1 : 0;
@@ -435,8 +435,7 @@ bool cw_add_hint(Crossword *cw, size_t preferred_entry)
         return false;
 
     // Try preferred entry first
-    if (preferred_entry < cw->num_entries &&
-        !cw->entries[preferred_entry].complete)
+    if (preferred_entry < cw->num_entries && !cw->entries[preferred_entry].complete)
     {
         if (cw_try_hint_on_entry(cw, &cw->entries[preferred_entry]))
             return true;

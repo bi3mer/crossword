@@ -9,6 +9,8 @@ import pandas as pd
 
 CSV_PATH = "eval_results.csv"
 
+DIFFICULTY_ORDER = ["very_easy", "easy", "medium", "hard", "very_hard"]
+
 
 def ensure_csv():
     if os.path.exists(CSV_PATH):
@@ -33,11 +35,11 @@ def print_section(title):
 
 def overview(df):
     print_section("Overview")
-    print(f"  Personas:   {', '.join(df['persona'].unique())}")
-    print(f"  Game types: {', '.join(df['game_type'].unique())}")
-    print(f"  Runs:       {df['run'].nunique()} per (persona, game_type)")
-    print(f"  Rounds:     {df['round'].nunique()} per run")
-    print(f"  Total rows: {len(df)}")
+    print(f"  Personas:      {', '.join(df['persona'].unique())}")
+    print(f"  Game types:    {', '.join(df['game_type'].unique())}")
+    print(f"  Difficulties:  {', '.join(df['difficulty'].unique())}")
+    print(f"  Runs:          {df['run'].nunique()} per (persona, game_type, difficulty)")
+    print(f"  Total rows:    {len(df)}")
 
 
 def solve_rates(df):
@@ -45,24 +47,78 @@ def solve_rates(df):
     grouped = df.groupby(["persona", "game_type"]).agg(
         solved=("solved", "sum"),
         struggled=("struggled", "sum"),
-        failed=("failed", "sum"),
+        hard=("hard", "sum"),
         total=("total", "sum"),
+        hints=("hints_used", "sum"),
     )
     grouped["solve_%"] = (100 * grouped["solved"] / grouped["total"]).round(1)
     grouped["struggle_%"] = (100 * grouped["struggled"] / grouped["total"]).round(1)
-    grouped["fail_%"] = (100 * grouped["failed"] / grouped["total"]).round(1)
-    print(grouped[["solve_%", "struggle_%", "fail_%"]].to_string())
+    grouped["hard_%"] = (100 * grouped["hard"] / grouped["total"]).round(1)
+    print(grouped[["solve_%", "struggle_%", "hard_%", "hints"]].to_string())
 
 
 def time_summary(df):
-    print_section("Average Time per Round (seconds)")
+    print_section("Average Time per Puzzle (seconds)")
     grouped = (
         df.groupby(["persona", "game_type"])["time_s"]
         .agg(["mean", "std", "min", "max"])
         .round(1)
     )
-
     print(grouped.to_string())
+
+
+def difficulty_breakdown(df):
+    print_section("Solve Rate by Difficulty (% of words)")
+    for persona in df["persona"].unique():
+        print(f"\n  {persona}:")
+        subset = df[df["persona"] == persona]
+        pivot = subset.groupby(["difficulty", "game_type"]).apply(
+            lambda g: 100 * g["solved"].sum() / g["total"].sum(),
+            include_groups=False,
+        ).unstack("game_type")
+        pivot = pivot.reindex(DIFFICULTY_ORDER)
+        print(pivot.round(1).to_string())
+
+
+def time_by_difficulty(df):
+    print_section("Average Time by Difficulty (seconds)")
+    for persona in df["persona"].unique():
+        print(f"\n  {persona}:")
+        subset = df[df["persona"] == persona]
+        pivot = subset.groupby(["difficulty", "game_type"])["time_s"].mean().unstack("game_type")
+        pivot = pivot.reindex(DIFFICULTY_ORDER)
+        print(pivot.round(1).to_string())
+
+
+def hints_by_difficulty(df):
+    hints_df = df[df["game_type"] == "dynamic_hints"]
+    if hints_df["hints_used"].sum() == 0:
+        return
+
+    print_section("Hints Used by Difficulty (dynamic_hints only)")
+    pivot = hints_df.groupby(["persona", "difficulty"])["hints_used"].agg(["sum", "mean"]).round(1)
+    pivot.columns = ["total", "per_puzzle"]
+    pivot = pivot.reindex(DIFFICULTY_ORDER, level="difficulty")
+    print(pivot.to_string())
+
+
+def difficulty_reductions(df):
+    dyn_df = df[df["game_type"].isin(["dynamic", "dynamic_hints"])]
+    if "difficulty_reductions" not in dyn_df.columns or dyn_df["difficulty_reductions"].sum() == 0:
+        return
+
+    print_section("Difficulty Reductions by Difficulty (dynamic modes)")
+    for persona in dyn_df["persona"].unique():
+        print(f"\n  {persona}:")
+        subset = dyn_df[dyn_df["persona"] == persona]
+        pivot = (
+            subset.groupby(["difficulty", "game_type"])["difficulty_reductions"]
+            .agg(["sum", "mean"])
+            .round(1)
+        )
+        pivot.columns = ["total", "per_puzzle"]
+        pivot = pivot.reindex(DIFFICULTY_ORDER, level="difficulty")
+        print(pivot.to_string())
 
 
 def game_type_comparison(df):
@@ -79,8 +135,8 @@ def game_type_comparison(df):
                     "solved",
                     lambda x: 100 * x.sum() / subset.loc[x.index, "total"].sum(),
                 ),
-                fail_rate=(
-                    "failed",
+                hard_rate=(
+                    "hard",
                     lambda x: 100 * x.sum() / subset.loc[x.index, "total"].sum(),
                 ),
             )
@@ -89,29 +145,17 @@ def game_type_comparison(df):
         print(pivot.to_string())
 
 
-def round_by_round(df):
-    print_section("Round-by-Round Solve Rate (% solved, mean across runs)")
-    for persona in df["persona"].unique():
-        print(f"\n  {persona}:")
-        for game_type in df["game_type"].unique():
-            subset = df[(df["persona"] == persona) & (df["game_type"] == game_type)]
-            by_round = subset.groupby("round").apply(
-                lambda g: 100 * g["solved"].sum() / g["total"].sum(),
-                include_groups=False,
-            )
-
-            rates = "  ".join(f"{r:.0f}%" for r in by_round)
-            print(f"    {game_type:20s}: {rates}")
-
-
 def main():
     ensure_csv()
     df = pd.read_csv(CSV_PATH)
     overview(df)
     solve_rates(df)
     time_summary(df)
+    difficulty_breakdown(df)
+    time_by_difficulty(df)
+    hints_by_difficulty(df)
+    difficulty_reductions(df)
     game_type_comparison(df)
-    round_by_round(df)
     print()
 
 

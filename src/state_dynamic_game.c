@@ -6,6 +6,8 @@
 
 #include "raylib.h"
 
+#include <stdio.h>
+
 #include "staunch/general_math.h"
 #include "staunch/types.h"
 
@@ -40,8 +42,16 @@ static void on_enter(FSM *fsm)
 
     gs->cw = (Crossword){0};
     gs->cw.clue_index = gs->clue_index;
-    cw_add_word(&gs->cw);
-    cw_add_word(&gs->cw);
+    if (!cw_add_word(&gs->cw))
+    {
+        gs->cw.clue_index /= 2;
+        cw_add_word(&gs->cw);
+    }
+    if (!cw_add_word(&gs->cw))
+    {
+        gs->cw.clue_index /= 2;
+        cw_add_word(&gs->cw);
+    }
 
     gs->selected_cell = &gs->cw.cells[gs->cw.entries->start_y][gs->cw.entries->start_x];
     gs->cw.vertical_mode = gs->selected_cell->horizontal_entry == NULL;
@@ -52,6 +62,7 @@ static void on_enter(FSM *fsm)
     gs->start_time = GetTime();
     gs->last_solve_time = gs->start_time;
     gs->show_hint_button = false;
+    gs->difficulty_reduced = false;
 
     for (size_t i = 0; i < CW_MAX_ENTRIES; ++i)
         gs->time_on_entry[i] = 0.0;
@@ -81,6 +92,14 @@ static void tick(FSM *fsm, const float dt)
         GetTime() - gs->last_solve_time >= 30.0)
     {
         gs->show_hint_button = cw_hint_available(&gs->cw);
+    }
+
+    if (!gs->difficulty_reduced && GetTime() - gs->last_solve_time >= 60.0)
+    {
+        printf("Difficulty reduced: clue_index %zu -> %zu\n",
+               cw->clue_index, (size_t)(cw->clue_index * 0.9));
+        cw->clue_index = (size_t)(cw->clue_index * 0.9);
+        gs->difficulty_reduced = true;
     }
 
     // mouse input
@@ -161,7 +180,7 @@ static void tick(FSM *fsm, const float dt)
                 GetScreenToWorld2D(GetMousePosition(), gs->camera);
 
             const i16 cell_x = (i16)(mouse_position.x / g_cell_width);
-            const i16 cell_y = (i16)(mouse_position.y / g_cell_width);
+            const i16 cell_y = (i16)(mouse_position.y / g_cell_height);
 
             if (s_in_between_i16(0, cell_x, CW_DIM - 1) &&
                 s_in_between_i16(0, cell_y, CW_DIM - 1) &&
@@ -265,6 +284,7 @@ static void tick(FSM *fsm, const float dt)
                     PlaySound(gs->sfx_solve);
                     gs->last_solve_time = GetTime();
                     gs->show_hint_button = false;
+                    gs->difficulty_reduced = false;
 
                     if (cw->num_entries < CW_MAX_ENTRIES)
                     {
@@ -396,7 +416,11 @@ static void tick(FSM *fsm, const float dt)
                         if (next->correct_letter != 0)
                         {
                             selected_cell = next;
-                            cw->vertical_mode = vertical;
+
+                            if (vertical && next->vertical_entry != NULL)
+                                cw->vertical_mode = true;
+                            else if (!vertical && next->horizontal_entry != NULL)
+                                cw->vertical_mode = false;
                         }
                     }
                 }
