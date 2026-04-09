@@ -188,10 +188,38 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // Use system-installed raylib (via Homebrew)
-    exe.root_module.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-    exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
-    exe.root_module.linkSystemLibrary("raylib", .{});
+    // Link prebuilt raylib static library (deps/raylib-prebuilt)
+    const resolved = exe.root_module.resolved_target.?.result;
+    const is_macos = resolved.os.tag == .macos;
+    const is_linux = resolved.os.tag == .linux;
+    const is_windows = resolved.os.tag == .windows;
+
+    exe.root_module.addIncludePath(b.path("deps/raylib-prebuilt"));
+
+    if (is_macos) {
+        exe.root_module.addObjectFile(b.path("deps/raylib-prebuilt/macos/libraylib.a"));
+        exe.root_module.linkFramework("Cocoa", .{});
+        exe.root_module.linkFramework("IOKit", .{});
+        exe.root_module.linkFramework("CoreVideo", .{});
+        exe.root_module.linkFramework("OpenGL", .{});
+    } else if (is_linux) {
+        exe.root_module.addObjectFile(b.path("deps/raylib-prebuilt/linux_amd64/libraylib.a"));
+        exe.root_module.linkSystemLibrary("GL", .{});
+        exe.root_module.linkSystemLibrary("X11", .{});
+        exe.root_module.linkSystemLibrary("m", .{});
+        exe.root_module.linkSystemLibrary("pthread", .{});
+        exe.root_module.linkSystemLibrary("dl", .{});
+        exe.root_module.linkSystemLibrary("rt", .{});
+    } else if (is_windows) {
+        exe.root_module.addObjectFile(b.path("deps/raylib-prebuilt/windows_amd64/libraylib.a"));
+        exe.root_module.linkSystemLibrary("opengl32", .{});
+        exe.root_module.linkSystemLibrary("gdi32", .{});
+        exe.root_module.linkSystemLibrary("winmm", .{});
+        exe.root_module.linkSystemLibrary("user32", .{});
+        exe.root_module.linkSystemLibrary("shell32", .{});
+    } else {
+        @panic("Unsupported platform: only macOS, Linux, and Windows are supported");
+    }
 
     const is_release = optimize != .Debug;
     const c_flags: []const []const u8 = if (is_release)
@@ -275,13 +303,14 @@ pub fn build(b: *std.Build) void {
                 \\  {{
                 \\    "directory": "{s}",
                 \\    "file": "{s}/{s}/{s}",
-                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L -I{s}/deps/staunch/include -I{s}/src -I/opt/homebrew/include {s}/{s}/{s}"
+                \\    "command": "cc -std=c11 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L -I{s}/deps/staunch/include -I{s}/src -I{s}/deps/raylib-prebuilt {s}/{s}/{s}"
                 \\  }}
             , .{
                 root,
                 root,
                 dir_path,
                 entry.name,
+                root,
                 root,
                 root,
                 root,

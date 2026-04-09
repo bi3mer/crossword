@@ -5,43 +5,24 @@ set -e
 export PATH="/opt/homebrew/bin:$PATH"
 
 BUILD_DIR="web"
-RAYLIB_SRC="deps/raylib/src"
+RAYLIB_LIB="deps/raylib-prebuilt/web/libraylib.a"
+RAYLIB_INC="deps/raylib-prebuilt"
 STAUNCH_SRC="deps/staunch/src"
 SHELL_FILE="web/shell.html"
 
 mkdir -p "$BUILD_DIR"
 
 # Flags
-INCLUDES="-Isrc -Ideps/staunch/include -I$RAYLIB_SRC -I$RAYLIB_SRC/external/glfw/include"
+INCLUDES="-Isrc -Ideps/staunch/include -I$RAYLIB_INC"
 DEFINES="-DPLATFORM_WEB -DGRAPHICS_API_OPENGL_ES2"
 GAME_CFLAGS="-std=c11 -Wall -Wextra -Os"
-RAYLIB_CFLAGS="-std=gnu11 -Os -w"
 
 # Collect source files
-GAME_SRCS=$(find src -name '*.c')
+GAME_SRCS=$(find src -name '*.c' ! -name 'eval_main.c')
 STAUNCH_SRCS=$(find "$STAUNCH_SRC" -name '*.c')
-
-RAYLIB_SRCS="
-    $RAYLIB_SRC/rcore.c
-    $RAYLIB_SRC/rshapes.c
-    $RAYLIB_SRC/rtextures.c
-    $RAYLIB_SRC/rtext.c
-    $RAYLIB_SRC/rmodels.c
-    $RAYLIB_SRC/raudio.c
-    $RAYLIB_SRC/utils.c
-"
 
 OBJ_DIR="$BUILD_DIR/obj"
 mkdir -p "$OBJ_DIR"
-
-# Compile raylib with gnu11
-echo "Compiling raylib..."
-RAYLIB_OBJS=""
-for src in $RAYLIB_SRCS; do
-    obj="$OBJ_DIR/$(basename "${src%.c}.o")"
-    emcc $RAYLIB_CFLAGS $INCLUDES $DEFINES -c "$src" -o "$obj"
-    RAYLIB_OBJS="$RAYLIB_OBJS $obj"
-done
 
 # Compile game + staunch with c11 (save.c needs gnu11 for EM_ASM)
 echo "Compiling game..."
@@ -54,9 +35,9 @@ for src in $GAME_SRCS $STAUNCH_SRCS; do
     GAME_OBJS="$GAME_OBJS $obj"
 done
 
-# Link
+# Link against prebuilt raylib
 echo "Linking..."
-emcc $GAME_OBJS $RAYLIB_OBJS \
+emcc $GAME_OBJS "$RAYLIB_LIB" \
     -o "$BUILD_DIR/index.html" \
     --shell-file "$SHELL_FILE" \
     --preload-file assets \
