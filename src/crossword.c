@@ -60,8 +60,7 @@ bool cw_validate_entry(Crossword *cw, Crossword_Entry *ce)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Shared placement helpers
-
+//// Shared placement helpers
 // Try a specific word position against an entry, returning the number of
 // intersections if valid, or -1 if invalid.
 static i16 cw_check_placement(const Crossword *cw, const Word *w, bool vertical, i16 x,
@@ -281,17 +280,20 @@ bool cw_place_word(Crossword *cw, const Word *w, const bool vertical)
     return false;
 }
 
+static bool cw_is_word_used(const Crossword *cw, const char *word);
+
 // optimization: store index of last word to reduce search time
 bool cw_add_word(Crossword *cw)
 {
     s_assert(cw->num_entries <= CW_MAX_ENTRIES);
 
+    size_t c_i;
     bool placed_word = false;
     double probability_of_skip = 0.2;
 
-    for (; cw->clue_index < words_count; ++cw->clue_index)
+    for (c_i = cw->clue_index; c_i < words_count; ++c_i)
     {
-        const Word *w = &words[cw->clue_index];
+        const Word *w = &words[c_i];
 
         // TODO: change this to be in the build.zig
         // TODO: add easier words when player fails
@@ -328,29 +330,66 @@ bool cw_add_word(Crossword *cw)
         if (!cw_place_word(cw, w, vertical))
         {
             placed_word = true;
-            ++cw->clue_index;
+            cw->clue_index = c_i + 1;
             break;
         }
 
         if (!cw_place_word(cw, w, !vertical))
         {
             placed_word = true;
-            ++cw->clue_index;
+            cw->clue_index = c_i + 1;
             break;
         }
     }
 
-    if (cw->clue_index == words_count)
+    if (c_i >= words_count)
     {
         cw->clue_index = words_count / 2;
     }
 
-    return placed_word;
+    if (placed_word)
+        return true;
+
+    // Fallback: place a word disconnected from existing entries.
+    // Scan from the start of the word list for the widest selection.
+    for (c_i = cw->clue_index; c_i < words_count; ++c_i)
+    {
+        const Word *w = &words[c_i];
+        if (w->word_length <= 3 || w->word_length >= CW_DIM - 2)
+            continue;
+        if (cw_is_word_used(cw, w->word))
+            continue;
+
+        const bool vertical = s_rand_bool();
+        const i16 max_x = CW_DIM - (vertical ? 2 : (i16)w->word_length + 1);
+        const i16 max_y = CW_DIM - (vertical ? (i16)w->word_length + 1 : 2);
+
+        for (i16 attempt = 0; attempt < 64; ++attempt)
+        {
+            const i16 x = s_rand_i16(1, max_x);
+            const i16 y = s_rand_i16(1, max_y);
+
+            if (cw_check_placement(cw, w, vertical, x, y) >= 0)
+            {
+                CW_LOG("Disconnected placement for: %s\n", w->word);
+                cw_commit_word(cw, w, vertical, x, y);
+                return true;
+            }
+
+            if (cw_check_placement(cw, w, !vertical, x, y) >= 0)
+            {
+                CW_LOG("Disconnected placement for: %s\n", w->word);
+                cw_commit_word(cw, w, !vertical, x, y);
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Hint placement
-
 static bool cw_is_word_used(const Crossword *cw, const char *word)
 {
     for (size_t i = 0; i < cw->num_entries; ++i)
