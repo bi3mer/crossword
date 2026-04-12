@@ -11,22 +11,22 @@
 typedef struct
 {
     const char *name;
-    double solve_threshold;     // quick solve below this
-    double struggle_threshold;  // struggle solve below this, hard solve above
+    double solve_threshold;    // quick solve below this
+    double struggle_threshold; // struggle solve below this, hard solve above
 } Player_Persona;
 
 #define NUM_RUNS 100
 #define NUM_DIFFICULTIES 5
 
-#define EVAL_ASSERT(cond, ...)                                                 \
-    do                                                                         \
-    {                                                                          \
-        if (!(cond))                                                           \
-        {                                                                      \
-            fprintf(stderr, "EVAL ERROR: " __VA_ARGS__);                       \
-            fprintf(stderr, "\n");                                             \
-            exit(1);                                                           \
-        }                                                                      \
+#define EVAL_ASSERT(cond, ...)                                                           \
+    do                                                                                   \
+    {                                                                                    \
+        if (!(cond))                                                                     \
+        {                                                                                \
+            fprintf(stderr, "EVAL ERROR: " __VA_ARGS__);                                 \
+            fprintf(stderr, "\n");                                                       \
+            exit(1);                                                                     \
+        }                                                                                \
     } while (0)
 
 // Find the clue_index where surprisal first reaches or exceeds the target.
@@ -69,17 +69,22 @@ static void solve_entry(Crossword *cw, Crossword_Entry *ce)
 }
 
 // Time ranges for each outcome (seconds)
-#define SOLVE_TIME_MIN    1.0
-#define SOLVE_TIME_MAX   10.0
+#define SOLVE_TIME_MIN 1.0
+#define SOLVE_TIME_MAX 10.0
 #define STRUGGLE_TIME_MIN 30.0
 #define STRUGGLE_TIME_MAX 60.0
-#define HARD_TIME_MIN    120.0
-#define HARD_TIME_MAX    300.0
-#define HARD_SURPRISAL_CAP 30.0  // surprisal beyond this still maps to HARD_TIME_MAX
+#define HARD_TIME_MIN 120.0
+#define HARD_TIME_MAX 300.0
+#define HARD_SURPRISAL_CAP 30.0 // surprisal beyond this still maps to HARD_TIME_MAX
 
 #define HINT_DELAY 30.0
 
-typedef enum { OUTCOME_SOLVE, OUTCOME_STRUGGLE, OUTCOME_HARD } Solve_Outcome;
+typedef enum
+{
+    OUTCOME_SOLVE,
+    OUTCOME_STRUGGLE,
+    OUTCOME_HARD
+} Solve_Outcome;
 
 // Compute time for a word based on where effective surprisal falls within the
 // persona's thresholds. Time is linearly interpolated within the outcome range.
@@ -92,16 +97,17 @@ static double compute_time(double effective, const Player_Persona *persona)
     }
     else if (effective < persona->struggle_threshold)
     {
-        double t = (effective - persona->solve_threshold)
-                 / (persona->struggle_threshold - persona->solve_threshold);
+        double t = (effective - persona->solve_threshold) /
+                   (persona->struggle_threshold - persona->solve_threshold);
         return STRUGGLE_TIME_MIN + t * (STRUGGLE_TIME_MAX - STRUGGLE_TIME_MIN);
     }
     else
     {
         double cap = HARD_SURPRISAL_CAP;
-        double t = (effective - persona->struggle_threshold)
-                 / (cap - persona->struggle_threshold);
-        if (t > 1.0) t = 1.0;
+        double t = (effective - persona->struggle_threshold) /
+                   (cap - persona->struggle_threshold);
+        if (t > 1.0)
+            t = 1.0;
         return HARD_TIME_MIN + t * (HARD_TIME_MAX - HARD_TIME_MIN);
     }
 }
@@ -139,12 +145,12 @@ static size_t filled_count(const Crossword *cw, const Crossword_Entry *ce)
 }
 
 // Compute effective surprisal for an entry.
-// Cross-letters reduce effective surprisal when 2+ letters are already filled.
+// Cross-letters reduce effective surprisal when 1+ letters are already filled.
 static double calc_effective_surprisal(const Crossword *cw, const Crossword_Entry *ce)
 {
-    double surprisal = find_surprisal(ce->word);
-    size_t filled = filled_count(cw, ce);
-    if (filled >= 2)
+    const double surprisal = find_surprisal(ce->word);
+    const size_t filled = filled_count(cw, ce);
+    if (filled >= 1)
         return surprisal * (1.0 - (double)filled / (double)ce->word_length);
     return surprisal;
 }
@@ -154,8 +160,10 @@ static Solve_Outcome classify_entry(const Crossword *cw, const Crossword_Entry *
                                     const Player_Persona *persona)
 {
     double eff = calc_effective_surprisal(cw, ce);
-    if (eff < persona->solve_threshold) return OUTCOME_SOLVE;
-    if (eff < persona->struggle_threshold) return OUTCOME_STRUGGLE;
+    if (eff < persona->solve_threshold)
+        return OUTCOME_SOLVE;
+    if (eff < persona->struggle_threshold)
+        return OUTCOME_STRUGGLE;
     return OUTCOME_HARD;
 }
 
@@ -163,8 +171,10 @@ static Solve_Outcome classify_entry(const Crossword *cw, const Crossword_Entry *
 static void track_surprisal(Round_Result *r, const Crossword_Entry *ce)
 {
     double s = find_surprisal(ce->word);
-    if (s < r->min_surprisal) r->min_surprisal = s;
-    if (s > r->max_surprisal) r->max_surprisal = s;
+    if (s < r->min_surprisal)
+        r->min_surprisal = s;
+    if (s > r->max_surprisal)
+        r->max_surprisal = s;
 }
 
 // Record outcome and add time for a word.
@@ -173,9 +183,15 @@ static void record_word(Round_Result *r, Solve_Outcome outcome, double effective
 {
     switch (outcome)
     {
-    case OUTCOME_SOLVE:    ++r->solved;    break;
-    case OUTCOME_STRUGGLE: ++r->struggled; break;
-    case OUTCOME_HARD:     ++r->hard;      break;
+    case OUTCOME_SOLVE:
+        ++r->solved;
+        break;
+    case OUTCOME_STRUGGLE:
+        ++r->struggled;
+        break;
+    case OUTCOME_HARD:
+        ++r->hard;
+        break;
     }
     r->total_time += compute_time(effective, persona);
 }
@@ -216,13 +232,15 @@ static Round_Result play_static_round(const Player_Persona *persona, u32 seed,
         for (size_t i = 0; i < cw.num_entries; ++i)
         {
             Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete) continue;
+            if (ce->complete)
+                continue;
 
             double eff = calc_effective_surprisal(&cw, ce);
             Solve_Outcome outcome = classify_entry(&cw, ce, persona);
 
             // On first passes, skip hard words — cross-letters may help later
-            if (outcome == OUTCOME_HARD) continue;
+            if (outcome == OUTCOME_HARD)
+                continue;
 
             track_surprisal(&r, ce);
             record_word(&r, outcome, eff, persona);
@@ -287,13 +305,15 @@ static Round_Result play_dynamic_round(const Player_Persona *persona, u32 seed,
         for (size_t i = 0; i < cw.num_entries; ++i)
         {
             Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete) continue;
+            if (ce->complete)
+                continue;
 
             double eff = calc_effective_surprisal(&cw, ce);
             Solve_Outcome outcome = classify_entry(&cw, ce, persona);
 
             // Skip hard words on early passes — cross-letters may help later
-            if (outcome == OUTCOME_HARD) continue;
+            if (outcome == OUTCOME_HARD)
+                continue;
 
             track_surprisal(&r, ce);
             record_word(&r, outcome, eff, persona);
@@ -369,8 +389,8 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
         cw.clue_index /= 2;
         cw_add_word(&cw);
     }
-    EVAL_ASSERT(cw.num_entries > 0,
-                "dynamic_hints round generated 0 entries (seed=%u)", seed);
+    EVAL_ASSERT(cw.num_entries > 0, "dynamic_hints round generated 0 entries (seed=%u)",
+                seed);
 
     Round_Result r = {0};
     r.min_surprisal = DBL_MAX;
@@ -392,7 +412,8 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
         for (size_t i = 0; i < cw.num_entries; ++i)
         {
             Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete) continue;
+            if (ce->complete)
+                continue;
 
             double eff = calc_effective_surprisal(&cw, ce);
             Solve_Outcome outcome = classify_entry(&cw, ce, persona);
@@ -401,8 +422,7 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
             // Try a hint if the persona has been stuck for 30s+ (including
             // time spent on this word). Matches game: hint button appears
             // after 30s without solving.
-            if (outcome != OUTCOME_SOLVE &&
-                time_since_last_solve + time >= 30.0)
+            if (outcome != OUTCOME_SOLVE && time_since_last_solve + time >= 30.0)
             {
                 if (cw_add_hint(&cw, i))
                 {
@@ -420,21 +440,21 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
                     eff = calc_effective_surprisal(&cw, ce);
                     outcome = classify_entry(&cw, ce, persona);
                     time = compute_time(eff, persona);
-                    time_since_last_solve = 0.0;  // hint resets timer
+                    time_since_last_solve = 0.0; // hint resets timer
                 }
             }
 
             // Skip hard words on early passes — cross-letters may help later
             if (outcome == OUTCOME_HARD)
             {
-                time_since_last_solve += time;  // persona spent time trying
+                time_since_last_solve += time; // persona spent time trying
                 continue;
             }
 
             track_surprisal(&r, ce);
             record_word(&r, outcome, eff, persona);
             solve_entry(&cw, ce);
-            time_since_last_solve = 0.0;  // successful solve resets timer
+            time_since_last_solve = 0.0; // successful solve resets timer
 
             if (time >= 60.0)
             {
@@ -534,7 +554,8 @@ int main(void)
         EVAL_ASSERT(personas[i].solve_threshold > 0,
                     "persona '%s' has non-positive solve_threshold", personas[i].name);
         EVAL_ASSERT(personas[i].struggle_threshold > personas[i].solve_threshold,
-                    "persona '%s' struggle_threshold <= solve_threshold", personas[i].name);
+                    "persona '%s' struggle_threshold <= solve_threshold",
+                    personas[i].name);
     }
 
     EVAL_ASSERT(words_count > 0, "word dataset is empty");
@@ -562,14 +583,14 @@ int main(void)
     {
         difficulties[d].name = diff_names[d];
         difficulties[d].min_surprisal = min_s + d * step;
-        difficulties[d].min_index = find_index_for_surprisal(difficulties[d].min_surprisal);
+        difficulties[d].min_index =
+            find_index_for_surprisal(difficulties[d].min_surprisal);
     }
 
     printf("Surprisal range: %.2f - %.2f (step=%.2f)\n", min_s, max_s, step);
     for (size_t d = 0; d < NUM_DIFFICULTIES; ++d)
     {
-        printf("  %s: start_surprisal=%.2f, start_index=%zu\n",
-               difficulties[d].name,
+        printf("  %s: start_surprisal=%.2f, start_index=%zu\n", difficulties[d].name,
                difficulties[d].min_surprisal, difficulties[d].min_index);
     }
 
@@ -581,7 +602,8 @@ int main(void)
         return 1;
     }
 
-    fprintf(csv, "persona,game_type,difficulty,run,solved,struggled,hard,total,hints_used,difficulty_reductions,time_s,min_surprisal,max_surprisal\n");
+    fprintf(csv, "persona,game_type,difficulty,run,solved,struggled,hard,total,hints_"
+                 "used,difficulty_reductions,time_s,min_surprisal,max_surprisal\n");
 
     typedef Round_Result (*Play_Fn)(const Player_Persona *, u32, size_t);
 
@@ -606,20 +628,20 @@ int main(void)
         {
             for (size_t d = 0; d < NUM_DIFFICULTIES; ++d)
             {
-                printf("Running %s / %s / %s...\n",
-                       persona->name, game_types[g].name, difficulties[d].name);
+                printf("Running %s / %s / %s...\n", persona->name, game_types[g].name,
+                       difficulties[d].name);
 
                 for (u32 run = 0; run < NUM_RUNS; ++run)
                 {
                     const u32 seed = (u32)(d * NUM_RUNS) + run;
-                    Round_Result r = game_types[g].play(
-                        persona, seed, difficulties[d].min_index);
+                    Round_Result r =
+                        game_types[g].play(persona, seed, difficulties[d].min_index);
 
                     fprintf(csv, "%s,%s,%s,%u,%zu,%zu,%zu,%zu,%zu,%zu,%.1f,%.2f,%.2f\n",
                             persona->name, game_types[g].name, difficulties[d].name,
-                            run + 1, r.solved, r.struggled, r.hard, r.total,
-                            r.hints_used, r.difficulty_reductions,
-                            r.total_time, r.min_surprisal, r.max_surprisal);
+                            run + 1, r.solved, r.struggled, r.hard, r.total, r.hints_used,
+                            r.difficulty_reductions, r.total_time, r.min_surprisal,
+                            r.max_surprisal);
                 }
             }
         }
