@@ -346,6 +346,9 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
     for (size_t i = 0; i < cw.num_entries; ++i)
     {
         Crossword_Entry *ce = &cw.entries[i];
+        if (ce->complete)
+            continue;
+
         double eff = calc_effective_surprisal(&cw, ce);
         Solve_Outcome outcome = classify_entry(&cw, ce, persona);
         double time = compute_time(eff, persona);
