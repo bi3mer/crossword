@@ -338,6 +338,78 @@ def avg_time_latex_table(df):
     print(f"\nSaved to {out_path}")
 
 
+def surprisal_range_latex_table(df):
+    """Generate a LaTeX table of surprisal min/avg/max by difficulty and game type."""
+    print_section("LaTeX Table: Surprisal Range by Difficulty and Game Type")
+
+    difficulties = DIFFICULTY_ORDER
+    difficulty_labels = {
+        "very_easy": "Very Easy", "easy": "Easy", "medium": "Medium",
+        "hard": "Hard", "very_hard": "Very Hard",
+    }
+    game_types = ["static", "dynamic", "dynamic_hints"]
+    gt_labels = {
+        "static": "Static",
+        "dynamic": "Dynamic",
+        "dynamic_hints": r"Dynamic+Hints",
+    }
+
+    agg = (
+        df.groupby(["game_type", "difficulty"])
+        .agg(
+            min_s=("min_surprisal", "mean"),
+            max_s=("max_surprisal", "mean"),
+            avg_s=("min_surprisal", lambda x: (
+                df.loc[x.index, "min_surprisal"] + df.loc[x.index, "max_surprisal"]
+            ).mean() / 2),
+        )
+        .reset_index()
+    )
+
+    lines = []
+    lines.append(r"\begin{table}[ht]")
+    lines.append(r"\centering")
+    lines.append(r"\small")
+    lines.append(r"\caption{Average surprisal range per puzzle by difficulty and game type.}")
+    lines.append(r"\label{tab:difficulty}")
+    lines.append(r"\begin{tabular}{l l r r r}")
+    lines.append(r"\toprule")
+    lines.append(r"\textbf{Difficulty} & \textbf{Game Type} & \textbf{Min} & \textbf{Avg} & \textbf{Max} \\")
+    lines.append(r"\midrule")
+
+    for di, diff in enumerate(difficulties):
+        if di > 0:
+            lines.append(r"\midrule")
+
+        for gi, gt in enumerate(game_types):
+            diff_col = difficulty_labels[diff] if gi == 0 else ""
+            gt_col = gt_labels[gt]
+
+            row = agg[(agg["game_type"] == gt) & (agg["difficulty"] == diff)]
+            if len(row) == 1:
+                mn = row["min_s"].values[0]
+                mx = row["max_s"].values[0]
+                avg = (mn + mx) / 2
+                cell = f"{diff_col} & {gt_col} & ${mn:.2f}$ & ${avg:.2f}$ & ${mx:.2f}$"
+            else:
+                cell = f"{diff_col} & {gt_col} & --- & --- & ---"
+
+            lines.append(cell + r" \\")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{table}")
+
+    table = "\n".join(lines)
+    print(table)
+
+    out_path = "surprisal_range_table.tex"
+    with open(out_path, "w") as f:
+        f.write(table + "\n")
+
+    print(f"\nSaved to {out_path}")
+
+
 if __name__ == "__main__":
     ensure_csv()
     df = pd.read_csv(CSV_PATH)
@@ -354,5 +426,6 @@ if __name__ == "__main__":
     persona_threshold_positioning(df)
     game_type_comparison(df)
     avg_time_latex_table(df)
+    surprisal_range_latex_table(df)
     print()
 

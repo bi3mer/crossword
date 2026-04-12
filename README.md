@@ -11,6 +11,7 @@ There are also several codebases that this relies on:
 - [raylib](https://www.raylib.com/) (prebuilt static libraries in [`deps/raylib-prebuilt`](deps/raylib-prebuilt))
 - [staunch](https://github.com/bi3mer/staunch) (git submodule)
 - [fsm.h](https://github.com/bi3mer/fsm.h) (single-header finite state machine)
+- [stb_ds.h](https://github.com/nothings/stb) (public domain single-header data structures by Sean Barrett)
 
 ## Setup
 
@@ -61,6 +62,7 @@ pip install -r requirements.txt
 ### Run
 
 ```bash
+zig build eval
 python3 scripts/analyze_eval.py
 ```
 

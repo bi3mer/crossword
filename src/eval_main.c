@@ -3,10 +3,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
+
 #include "clues.h"
 #include "crossword.h"
 
 #include "staunch/random.h"
+
+// Word -> surprisal hashmap (built once at startup)
+typedef struct
+{
+    const char *key;
+    double value;
+} Surprisal_Entry;
+
+static Surprisal_Entry *surprisal_map = NULL;
 
 typedef struct
 {
@@ -15,7 +27,7 @@ typedef struct
     double struggle_threshold; // struggle solve below this, hard solve above
 } Player_Persona;
 
-#define NUM_RUNS 100
+#define NUM_RUNS 1000
 #define NUM_DIFFICULTIES 5
 
 #define EVAL_ASSERT(cond, ...)                                                           \
@@ -43,11 +55,9 @@ static size_t find_index_for_surprisal(double target)
 
 static double find_surprisal(const char *word)
 {
-    for (size_t i = 0; i < words_count; ++i)
-    {
-        if (strcmp(words[i].word, word) == 0)
-            return words[i].surprisal;
-    }
+    Surprisal_Entry *entry = shgetp_null(surprisal_map, word);
+    if (entry)
+        return entry->value;
 
     fprintf(stderr, "EVAL ERROR: word '%s' not found in dataset\n", word);
     exit(1);
@@ -356,19 +366,27 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
         // Try a hint if the persona has been stuck for 30s+.
         if (outcome != OUTCOME_SOLVE && time_since_last_solve + time >= 30.0)
         {
+            // Add the wait time before the hint became available.
+            // If already past 30s, the hint is immediate (no extra wait).
+            if (time_since_last_solve < HINT_DELAY)
+                r.total_time += HINT_DELAY - time_since_last_solve;
+
             if (cw_add_hint(&cw, i))
             {
                 ++r.hints_used;
                 Crossword_Entry *hint_entry = &cw.entries[cw.num_entries - 1];
 
-                // Hint word is given to the player — solve it for free
+                // Persona solves the hint word first (with its own timing)
+                double hint_eff = calc_effective_surprisal(&cw, hint_entry);
+                Solve_Outcome hint_outcome = classify_entry(&cw, hint_entry, persona);
+                track_surprisal(&r, hint_entry);
+                record_word(&r, hint_outcome, hint_eff, persona);
                 solve_entry(&cw, hint_entry);
 
-                // Re-classify with new cross-letters
+                // Re-classify current word with new cross-letters
                 eff = calc_effective_surprisal(&cw, ce);
                 outcome = classify_entry(&cw, ce, persona);
                 time = compute_time(eff, persona);
-                time_since_last_solve = 0.0;
             }
         }
 
@@ -429,6 +447,10 @@ int main(void)
     }
 
     EVAL_ASSERT(words_count > 0, "word dataset is empty");
+
+    // Build word -> surprisal hashmap for O(1) lookups
+    for (size_t i = 0; i < words_count; ++i)
+        shput(surprisal_map, words[i].word, words[i].surprisal);
 
     // Create difficulty levels based on surprisal ranges.
     // Words are sorted by surprisal (ascending). Each difficulty sets a
