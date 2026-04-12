@@ -145,14 +145,12 @@ static size_t filled_count(const Crossword *cw, const Crossword_Entry *ce)
 }
 
 // Compute effective surprisal for an entry.
-// Cross-letters reduce effective surprisal when 1+ letters are already filled.
+// Cross-letters reduce effective surprisal proportionally to filled letters.
 static double calc_effective_surprisal(const Crossword *cw, const Crossword_Entry *ce)
 {
     const double surprisal = find_surprisal(ce->word);
     const size_t filled = filled_count(cw, ce);
-    if (filled >= 1)
-        return surprisal * (1.0 - (double)filled / (double)ce->word_length);
-    return surprisal;
+    return surprisal * (1.0 - (double)filled / (double)ce->word_length);
 }
 
 // Classify how the persona would handle this entry.
