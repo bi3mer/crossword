@@ -331,11 +331,7 @@ def avg_time_latex_table(df):
     table = "\n".join(lines)
     print(table)
 
-    out_path = "avg_time_table.tex"
-    with open(out_path, "w") as f:
-        f.write(table + "\n")
-
-    print(f"\nSaved to {out_path}")
+    return table
 
 
 def surprisal_range_latex_table(df):
@@ -403,11 +399,7 @@ def surprisal_range_latex_table(df):
     table = "\n".join(lines)
     print(table)
 
-    out_path = "surprisal_range_table.tex"
-    with open(out_path, "w") as f:
-        f.write(table + "\n")
-
-    print(f"\nSaved to {out_path}")
+    return table
 
 
 if __name__ == "__main__":
@@ -425,7 +417,15 @@ if __name__ == "__main__":
     surprisal_range_per_puzzle(df)
     persona_threshold_positioning(df)
     game_type_comparison(df)
-    avg_time_latex_table(df)
-    surprisal_range_latex_table(df)
+    tables = {
+        "avgtime": avg_time_latex_table(df),
+        "surprisalrange": surprisal_range_latex_table(df),
+    }
+
+    out_path = "tables.tex"
+    with open(out_path, "w") as f:
+        for name, content in tables.items():
+            f.write(f"\\newcommand{{\\{name}table}}{{\n{content}\n}}\n\n")
+    print(f"\nAll LaTeX tables saved to {out_path}")
     print()
 
