@@ -196,6 +196,7 @@ static void record_word(Round_Result *r, Solve_Outcome outcome, double effective
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Static: all words placed upfront, persona solves them sequentially.
 static Round_Result play_static_round(const Player_Persona *persona, u32 seed,
                                       size_t min_index)
 {
@@ -221,42 +222,17 @@ static Round_Result play_static_round(const Player_Persona *persona, u32 seed,
     r.min_surprisal = DBL_MAX;
     r.max_surprisal = 0.0;
 
-    // Solve every word. Multiple passes let cross-letters help later words.
-    bool made_progress = true;
-    while (made_progress)
-    {
-        made_progress = false;
-
-        for (size_t i = 0; i < cw.num_entries; ++i)
-        {
-            Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete)
-                continue;
-
-            double eff = calc_effective_surprisal(&cw, ce);
-            Solve_Outcome outcome = classify_entry(&cw, ce, persona);
-
-            // On first passes, skip hard words — cross-letters may help later
-            if (outcome == OUTCOME_HARD)
-                continue;
-
-            track_surprisal(&r, ce);
-            record_word(&r, outcome, eff, persona);
-            solve_entry(&cw, ce);
-            made_progress = true;
-        }
-    }
-
-    // Remaining words are hard — persona still solves them, just slowly
+    // Persona solves words in order. Cross-letters from earlier words
+    // naturally reduce effective surprisal of later words.
     for (size_t i = 0; i < cw.num_entries; ++i)
     {
-        if (!cw.entries[i].complete)
-        {
-            double eff = calc_effective_surprisal(&cw, &cw.entries[i]);
-            track_surprisal(&r, &cw.entries[i]);
-            record_word(&r, OUTCOME_HARD, eff, persona);
-            solve_entry(&cw, &cw.entries[i]);
-        }
+        Crossword_Entry *ce = &cw.entries[i];
+        double eff = calc_effective_surprisal(&cw, ce);
+        Solve_Outcome outcome = classify_entry(&cw, ce, persona);
+
+        track_surprisal(&r, ce);
+        record_word(&r, outcome, eff, persona);
+        solve_entry(&cw, ce);
     }
 
     return r;
@@ -264,6 +240,8 @@ static Round_Result play_static_round(const Player_Persona *persona, u32 seed,
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Dynamic: starts with 2 words, adds a new word after each solve.
+// Difficulty is reduced after words that take >= 60s.
 static Round_Result play_dynamic_round(const Player_Persona *persona, u32 seed,
                                        size_t min_index)
 {
@@ -288,76 +266,38 @@ static Round_Result play_dynamic_round(const Player_Persona *persona, u32 seed,
     r.min_surprisal = DBL_MAX;
     r.max_surprisal = 0.0;
 
-    // Solve every word. Easy/struggle words are solved first across multiple
-    // passes (cross-letters help later words). Then hard words are solved,
-    // each adding a new word to the puzzle.
-    //
-    // When a word takes >= 60s, clue_index is reduced by 10% (matching the
-    // game's difficulty reduction for stuck players). This makes subsequently
-    // added words easier.
-    bool made_progress = true;
-    while (made_progress)
-    {
-        made_progress = false;
+    // Persona solves words in order. After each solve, a new word is added.
+    // If a word takes >= 60s, clue_index is reduced by 10% (once per stuck
+    // period, matching the game's difficulty_reduced flag).
+    bool difficulty_reduced = false;
 
-        for (size_t i = 0; i < cw.num_entries; ++i)
-        {
-            Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete)
-                continue;
-
-            double eff = calc_effective_surprisal(&cw, ce);
-            Solve_Outcome outcome = classify_entry(&cw, ce, persona);
-
-            // Skip hard words on early passes — cross-letters may help later
-            if (outcome == OUTCOME_HARD)
-                continue;
-
-            track_surprisal(&r, ce);
-            record_word(&r, outcome, eff, persona);
-            solve_entry(&cw, ce);
-
-            double time = compute_time(eff, persona);
-            if (time >= 60.0)
-            {
-                cw.clue_index = (size_t)(cw.clue_index * 0.9);
-                ++r.difficulty_reductions;
-            }
-
-            if (cw.num_entries < CW_MAX_ENTRIES)
-            {
-                if (!cw_add_word(&cw))
-                {
-                    cw.clue_index /= 2;
-                    cw_add_word(&cw);
-                }
-            }
-
-            made_progress = true;
-        }
-    }
-
-    // Remaining words are hard — persona still solves them and new words are added
     for (size_t i = 0; i < cw.num_entries; ++i)
     {
-        if (!cw.entries[i].complete)
-        {
-            double eff = calc_effective_surprisal(&cw, &cw.entries[i]);
-            track_surprisal(&r, &cw.entries[i]);
-            record_word(&r, OUTCOME_HARD, eff, persona);
-            solve_entry(&cw, &cw.entries[i]);
+        Crossword_Entry *ce = &cw.entries[i];
+        double eff = calc_effective_surprisal(&cw, ce);
+        Solve_Outcome outcome = classify_entry(&cw, ce, persona);
 
-            // Hard words always take >= 60s, so always reduce
+        track_surprisal(&r, ce);
+        record_word(&r, outcome, eff, persona);
+        solve_entry(&cw, ce);
+
+        double time = compute_time(eff, persona);
+        if (!difficulty_reduced && time >= 60.0)
+        {
             cw.clue_index = (size_t)(cw.clue_index * 0.9);
             ++r.difficulty_reductions;
+            difficulty_reduced = true;
+        }
 
-            if (cw.num_entries < CW_MAX_ENTRIES)
+        if (outcome == OUTCOME_SOLVE)
+            difficulty_reduced = false;
+
+        if (cw.num_entries < CW_MAX_ENTRIES)
+        {
+            if (!cw_add_word(&cw))
             {
-                if (!cw_add_word(&cw))
-                {
-                    cw.clue_index /= 2;
-                    cw_add_word(&cw);
-                }
+                cw.clue_index /= 2;
+                cw_add_word(&cw);
             }
         }
     }
@@ -369,6 +309,9 @@ static Round_Result play_dynamic_round(const Player_Persona *persona, u32 seed,
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Dynamic + hints: same as dynamic, but the persona can request a hint
+// after being stuck for 30s. The hint places an easy intersecting word
+// (solved for free), reducing the current word's effective surprisal.
 static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 seed,
                                              size_t min_index)
 {
@@ -394,142 +337,68 @@ static Round_Result play_dynamic_hints_round(const Player_Persona *persona, u32 
     r.min_surprisal = DBL_MAX;
     r.max_surprisal = 0.0;
 
-    // Solve every word. Hints are gated behind a 30s delay: the persona must
-    // accumulate 30s of simulated time without solving before a hint is
-    // available (matching the game's hint button timing).
-    //
-    // When a word takes >= 60s, clue_index is reduced by 10% (matching the
-    // game's difficulty reduction for stuck players).
+    // Persona solves words in order. After 30s without solving, a hint is
+    // available. After each solve, a new word is added. If a word takes
+    // >= 60s, clue_index is reduced by 10% (once per stuck period).
     double time_since_last_solve = 0.0;
+    bool difficulty_reduced = false;
 
-    bool made_progress = true;
-    while (made_progress)
-    {
-        made_progress = false;
-
-        for (size_t i = 0; i < cw.num_entries; ++i)
-        {
-            Crossword_Entry *ce = &cw.entries[i];
-            if (ce->complete)
-                continue;
-
-            double eff = calc_effective_surprisal(&cw, ce);
-            Solve_Outcome outcome = classify_entry(&cw, ce, persona);
-            double time = compute_time(eff, persona);
-
-            // Try a hint if the persona has been stuck for 30s+ (including
-            // time spent on this word). Matches game: hint button appears
-            // after 30s without solving.
-            if (outcome != OUTCOME_SOLVE && time_since_last_solve + time >= 30.0)
-            {
-                if (cw_add_hint(&cw, i))
-                {
-                    ++r.hints_used;
-                    Crossword_Entry *hint_entry = &cw.entries[cw.num_entries - 1];
-
-                    // Solve the hint word
-                    double hint_eff = calc_effective_surprisal(&cw, hint_entry);
-                    Solve_Outcome hint_outcome = classify_entry(&cw, hint_entry, persona);
-                    track_surprisal(&r, hint_entry);
-                    record_word(&r, hint_outcome, hint_eff, persona);
-                    solve_entry(&cw, hint_entry);
-
-                    // Re-classify with new cross-letters
-                    eff = calc_effective_surprisal(&cw, ce);
-                    outcome = classify_entry(&cw, ce, persona);
-                    time = compute_time(eff, persona);
-                    time_since_last_solve = 0.0; // hint resets timer
-                }
-            }
-
-            // Skip hard words on early passes — cross-letters may help later
-            if (outcome == OUTCOME_HARD)
-            {
-                time_since_last_solve += time; // persona spent time trying
-                continue;
-            }
-
-            track_surprisal(&r, ce);
-            record_word(&r, outcome, eff, persona);
-            solve_entry(&cw, ce);
-            time_since_last_solve = 0.0; // successful solve resets timer
-
-            if (time >= 60.0)
-            {
-                cw.clue_index = (size_t)(cw.clue_index * 0.9);
-                ++r.difficulty_reductions;
-            }
-
-            if (cw.num_entries < CW_MAX_ENTRIES)
-            {
-                if (!cw_add_word(&cw))
-                {
-                    cw.clue_index /= 2;
-                    cw_add_word(&cw);
-                }
-            }
-
-            made_progress = true;
-        }
-    }
-
-    // Remaining words are hard — persona still solves them and new words are added.
-    // time_since_last_solve carries over from the main loop.
     for (size_t i = 0; i < cw.num_entries; ++i)
     {
-        if (!cw.entries[i].complete)
+        Crossword_Entry *ce = &cw.entries[i];
+        double eff = calc_effective_surprisal(&cw, ce);
+        Solve_Outcome outcome = classify_entry(&cw, ce, persona);
+        double time = compute_time(eff, persona);
+
+        // Try a hint if the persona has been stuck for 30s+.
+        if (outcome != OUTCOME_SOLVE && time_since_last_solve + time >= 30.0)
         {
-            double eff = calc_effective_surprisal(&cw, &cw.entries[i]);
-            Solve_Outcome outcome = OUTCOME_HARD;
-            double time = compute_time(eff, persona);
-
-            // Try hint if 30s threshold reached
-            if (time_since_last_solve + time >= 30.0)
+            if (cw_add_hint(&cw, i))
             {
-                if (cw_add_hint(&cw, i))
-                {
-                    ++r.hints_used;
-                    Crossword_Entry *hint_entry = &cw.entries[cw.num_entries - 1];
+                ++r.hints_used;
+                Crossword_Entry *hint_entry = &cw.entries[cw.num_entries - 1];
 
-                    double hint_eff = calc_effective_surprisal(&cw, hint_entry);
-                    Solve_Outcome hint_outcome = classify_entry(&cw, hint_entry, persona);
-                    track_surprisal(&r, hint_entry);
-                    record_word(&r, hint_outcome, hint_eff, persona);
-                    solve_entry(&cw, hint_entry);
+                // Hint word is given to the player — solve it for free
+                solve_entry(&cw, hint_entry);
 
-                    // Recompute — hint cross-letters may improve outcome
-                    eff = calc_effective_surprisal(&cw, &cw.entries[i]);
-                    outcome = classify_entry(&cw, &cw.entries[i], persona);
-                    time = compute_time(eff, persona);
-                    time_since_last_solve = 0.0;
-                }
+                // Re-classify with new cross-letters
+                eff = calc_effective_surprisal(&cw, ce);
+                outcome = classify_entry(&cw, ce, persona);
+                time = compute_time(eff, persona);
+                time_since_last_solve = 0.0;
             }
+        }
 
-            track_surprisal(&r, &cw.entries[i]);
-            record_word(&r, outcome, eff, persona);
-            solve_entry(&cw, &cw.entries[i]);
+        track_surprisal(&r, ce);
+        record_word(&r, outcome, eff, persona);
+        solve_entry(&cw, ce);
+
+        if (outcome == OUTCOME_SOLVE)
+        {
             time_since_last_solve = 0.0;
+            difficulty_reduced = false;
+        }
+        else
+        {
+            time_since_last_solve += time;
+        }
 
-            // Hard words always take >= 60s, so always reduce
-            if (time >= 60.0)
-            {
-                cw.clue_index = (size_t)(cw.clue_index * 0.9);
-                ++r.difficulty_reductions;
-            }
+        if (!difficulty_reduced && time >= 60.0)
+        {
+            cw.clue_index = (size_t)(cw.clue_index * 0.9);
+            ++r.difficulty_reductions;
+            difficulty_reduced = true;
+        }
 
-            if (cw.num_entries < CW_MAX_ENTRIES)
+        if (cw.num_entries < CW_MAX_ENTRIES)
+        {
+            if (!cw_add_word(&cw))
             {
-                if (!cw_add_word(&cw))
-                {
-                    cw.clue_index /= 2;
-                    cw_add_word(&cw);
-                }
+                cw.clue_index /= 2;
+                cw_add_word(&cw);
             }
         }
     }
-
-    // Add hint delay time
-    r.total_time += (double)r.hints_used * HINT_DELAY;
 
     r.total = r.solved + r.struggled + r.hard;
     EVAL_ASSERT(r.total > 0, "dynamic_hints round has 0 total entries (seed=%u)", seed);

@@ -373,6 +373,7 @@ bool cw_add_word(Crossword *cw)
             {
                 CW_LOG("Disconnected placement for: %s\n", w->word);
                 cw_commit_word(cw, w, vertical, x, y);
+                cw->clue_index = c_i + 1;
                 return true;
             }
 
@@ -380,6 +381,7 @@ bool cw_add_word(Crossword *cw)
             {
                 CW_LOG("Disconnected placement for: %s\n", w->word);
                 cw_commit_word(cw, w, !vertical, x, y);
+                cw->clue_index = c_i + 1;
                 return true;
             }
         }

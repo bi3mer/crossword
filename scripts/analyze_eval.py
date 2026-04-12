@@ -296,7 +296,8 @@ def avg_time_latex_table(df):
             persona_col = persona.capitalize() if di == 0 else ""
             diff_col = difficulty_labels[diff]
 
-            cells = []
+            means = []
+            stds = []
             for gt in game_types:
                 row = agg[
                     (agg["game_type"] == gt)
@@ -304,11 +305,21 @@ def avg_time_latex_table(df):
                     & (agg["persona"] == persona)
                 ]
                 if len(row) == 1:
-                    mean = row["mean"].values[0]
-                    std = row["std"].values[0]
-                    cells.append(f"${mean:.0f} \\pm {std:.0f}$")
+                    means.append(row["mean"].values[0])
+                    stds.append(row["std"].values[0])
                 else:
+                    means.append(None)
+                    stds.append(None)
+
+            best = min((m for m in means if m is not None), default=None)
+            cells = []
+            for m, s in zip(means, stds):
+                if m is None:
                     cells.append("---")
+                elif m == best:
+                    cells.append(f"$\\mathbf{{{m:.0f} \\pm {s:.0f}}}$")
+                else:
+                    cells.append(f"${m:.0f} \\pm {s:.0f}$")
 
             line = " & ".join([persona_col, diff_col] + cells) + r" \\"
             lines.append(line)
