@@ -89,17 +89,64 @@ def time_by_difficulty(df):
         pivot = pivot.reindex(DIFFICULTY_ORDER)
         print(pivot.round(1).to_string())
 
+def hints_latex_table(df):
+    """Generate a LaTeX table of hints used by difficulty and persona (dynamic + hints only)."""
+    print_section("LaTeX Table: Hints Used by Difficulty (dynamic + hints only)")
 
-def hints_by_difficulty(df):
     hints_df = df[df["game_type"] == "dynamic_hints"]
     if hints_df["hints_used"].sum() == 0:
-        return
+        print("  (no hints used)")
+        return None
 
-    print_section("Hints Used by Difficulty (dynamic_hints only)")
-    pivot = hints_df.groupby(["persona", "difficulty"])["hints_used"].agg(["sum", "mean"]).round(1)
-    pivot.columns = ["total", "per_puzzle"]
-    pivot = pivot.reindex(DIFFICULTY_ORDER, level="difficulty")
-    print(pivot.to_string())
+    difficulty_labels = {
+        "very_easy": "Very Easy", "easy": "Easy", "medium": "Medium",
+        "hard": "Hard", "very_hard": "Very Hard",
+    }
+    personas = ["beginner", "intermediate", "expert"]
+
+    agg = (
+        hints_df.groupby(["difficulty", "persona"])["hints_used"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+
+    col_spec = "l " + " ".join(["r"] * len(personas))
+    persona_header = " & ".join(
+        [r"\textbf{Difficulty}"]
+        + [rf"\textbf{{{p.capitalize()}}}" for p in personas]
+    )
+
+    lines = []
+    lines.append(r"\begin{table}[ht]")
+    lines.append(r"\centering")
+    lines.append(r"\small")
+    lines.append(r"\caption{Average hints used per puzzle by difficulty and persona (Dynamic + Hints mode only).}")
+    lines.append(r"\label{tab:hints}")
+    lines.append(r"\begin{tabular}{" + col_spec + "}")
+    lines.append(r"\toprule")
+    lines.append(persona_header + r" \\")
+    lines.append(r"\midrule")
+
+    for diff in DIFFICULTY_ORDER:
+        diff_label = difficulty_labels[diff]
+        cells = [diff_label]
+        for persona in personas:
+            row = agg[(agg["difficulty"] == diff) & (agg["persona"] == persona)]
+            if len(row) == 1:
+                mean = row["mean"].values[0]
+                std = row["std"].values[0]
+                cells.append(f"${mean:.1f} \\pm {std:.1f}$")
+            else:
+                cells.append("---")
+        lines.append(" & ".join(cells) + r" \\")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{table}")
+
+    table = "\n".join(lines)
+    print(table)
+    return table
 
 
 def difficulty_reductions(df):
@@ -410,7 +457,6 @@ if __name__ == "__main__":
     time_summary(df)
     difficulty_breakdown(df)
     time_by_difficulty(df)
-    hints_by_difficulty(df)
     difficulty_reductions(df)
     hint_effectiveness(df)
     difficulty_reduction_impact(df)
@@ -420,6 +466,7 @@ if __name__ == "__main__":
     tables = {
         "avgtime": avg_time_latex_table(df),
         "surprisalrange": surprisal_range_latex_table(df),
+        "hints": hints_latex_table(df),
     }
 
     out_path = "tables.tex"
