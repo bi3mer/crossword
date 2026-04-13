@@ -11,6 +11,43 @@ CSV_PATH = "eval_results.csv"
 
 DIFFICULTY_ORDER = ["very_easy", "easy", "medium", "hard", "very_hard"]
 
+from scipy import stats
+
+def pairwise_ttests(df):
+    """Pairwise t-tests between game types for each persona and difficulty."""
+    print_section("Pairwise T-Tests: Game Type Comparisons")
+
+    pairs = [
+        ("static", "dynamic"),
+        ("static", "dynamic_hints"),
+        ("dynamic", "dynamic_hints"),
+    ]
+    pair_labels = {
+        ("static", "dynamic"): "Static vs Dynamic",
+        ("static", "dynamic_hints"): "Static vs Dynamic+Hints",
+        ("dynamic", "dynamic_hints"): "Dynamic vs Dynamic+Hints",
+    }
+
+    for persona in df["persona"].unique():
+        print(f"\n  {persona}:")
+        for difficulty in DIFFICULTY_ORDER:
+            print(f"    {difficulty}:")
+            subset = df[
+                (df["persona"] == persona) &
+                (df["difficulty"] == difficulty)
+            ]
+            for a, b in pairs:
+                times_a = subset[subset["game_type"] == a]["time_s"].values
+                times_b = subset[subset["game_type"] == b]["time_s"].values
+                if len(times_a) == 0 or len(times_b) == 0:
+                    continue
+                t, p = stats.ttest_ind(times_a, times_b)
+                sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "ns"
+                print(
+                    f"      {pair_labels[(a,b)]:35s}: "
+                    f"t={t:7.3f}  p={p:.4f}  {sig}"
+                )
+
 
 def ensure_csv():
     if os.path.exists(CSV_PATH):
@@ -448,7 +485,6 @@ def surprisal_range_latex_table(df):
 
     return table
 
-
 if __name__ == "__main__":
     ensure_csv()
     df = pd.read_csv(CSV_PATH)
@@ -463,6 +499,7 @@ if __name__ == "__main__":
     surprisal_range_per_puzzle(df)
     persona_threshold_positioning(df)
     game_type_comparison(df)
+    pairwise_ttests(df)
     tables = {
         "avgtime": avg_time_latex_table(df),
         "surprisalrange": surprisal_range_latex_table(df),
@@ -475,4 +512,3 @@ if __name__ == "__main__":
             f.write(f"\\newcommand{{\\{name}table}}{{\n{content}\n}}\n\n")
     print(f"\nAll LaTeX tables saved to {out_path}")
     print()
-
