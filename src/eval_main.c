@@ -472,11 +472,14 @@ int main(void)
 
     for (size_t d = 0; d < NUM_DIFFICULTIES; ++d)
     {
+        printf("%f + %zu * %f\n", min_s, d, step);
         difficulties[d].name = diff_names[d];
         difficulties[d].min_surprisal = min_s + d * step;
         difficulties[d].min_index =
             find_index_for_surprisal(difficulties[d].min_surprisal);
     }
+
+    exit(1);
 
     printf("Surprisal range: %.2f - %.2f (step=%.2f)\n", min_s, max_s, step);
     for (size_t d = 0; d < NUM_DIFFICULTIES; ++d)
