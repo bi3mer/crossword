@@ -1,6 +1,6 @@
 # Crossword
 
-A [raylib](https://www.raylib.com/index.html)-based crossword game where the puzzle adapts to you.
+A [raylib](https://www.raylib.com/index.html)-based crossword game where the puzzle adapts to you. You can play [online here.](https://bi3mer.github.io/crossword/)
 
 ## Install Dependencies
 
