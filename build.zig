@@ -10,18 +10,19 @@ const Entry = struct {
 };
 
 pub fn build(b: *std.Build) void {
+    const io = b.graph.io;
+    const root_dir = b.build_root.handle;
+
     ///////////////////////////////////////////////////////////////////////////
     // Create the clue dataset
     const header_path = "src" ++ std.fs.path.sep_str ++ "clues.h";
-    std.fs.cwd().access(header_path, .{}) catch {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        defer _ = gpa.deinit();
-        const allocator = gpa.allocator();
+    root_dir.access(io, header_path, .{}) catch {
+        const allocator = b.allocator;
 
         const word_path = "data" ++ std.fs.path.sep_str ++ "clues.csv";
-        const word_file = std.fs.cwd().readFileAlloc(allocator, word_path, 10 * 1024 * 1024) catch @panic("failed to read clues.csv");
+        const word_file = root_dir.readFileAlloc(io, word_path, allocator, .limited(10 * 1024 * 1024)) catch @panic("failed to read clues.csv");
 
-        var entries: std.ArrayListUnmanaged(Entry) = .{};
+        var entries: std.ArrayList(Entry) = .empty;
         defer entries.deinit(allocator);
 
         var line_iter = std.mem.splitScalar(u8, word_file, '\n');
@@ -81,8 +82,11 @@ pub fn build(b: *std.Build) void {
         }.lessThan);
 
         // Write header file
-        var header_file = std.fs.cwd().createFile(header_path, .{}) catch @panic("failed to create header file");
-        header_file.writeAll(
+        const header_file = root_dir.createFile(io, header_path, .{}) catch @panic("failed to create header file");
+        var header_buf: [64 * 1024]u8 = undefined;
+        var header_writer = header_file.writer(io, &header_buf);
+        const hw = &header_writer.interface;
+        hw.writeAll(
             \\#ifndef _CLUES_
             \\#define _CLUES_
             \\
@@ -103,8 +107,7 @@ pub fn build(b: *std.Build) void {
 
         std.debug.print("Starting to write!\n", .{});
         for (entries.items) |e| {
-            var buf: [2048]u8 = undefined;
-            const formatted = std.fmt.bufPrint(&buf,
+            hw.print(
                 \\    {{"{s}", {d}, "{s}", {{"{s}", "{s}", "{s}"}}, {{{d}, {d}, {d}}}, {d:.6}}},
                 \\
             , .{
@@ -113,12 +116,11 @@ pub fn build(b: *std.Build) void {
                 e.clue2,     e.clue3,
                 e.clue1.len, e.clue2.len,
                 e.clue3.len, e.surprisal,
-            }) catch @panic("format failed");
-            header_file.writeAll(formatted) catch @panic("write failed");
+            }) catch @panic("write failed");
         }
         std.debug.print("Done writing!\n", .{});
 
-        header_file.writeAll(
+        hw.writeAll(
             \\};
             \\
             \\static const size_t words_count = sizeof(words) / sizeof(words[0]);
@@ -126,7 +128,8 @@ pub fn build(b: *std.Build) void {
             \\#endif
             \\
         ) catch @panic("write failed");
-        header_file.close();
+        hw.flush() catch @panic("flush failed");
+        header_file.close(io);
 
         allocator.free(word_file);
     };
@@ -134,11 +137,15 @@ pub fn build(b: *std.Build) void {
     ///////////////////////////////////////////////////////////////////////////
     // Embed assets into a header
     const assets_path = "src" ++ std.fs.path.sep_str ++ "assets.h";
-    std.fs.cwd().access(assets_path, .{}) catch {
-        var assets_file = std.fs.cwd().createFile(assets_path, .{}) catch @panic("failed to create assets.h");
-        defer assets_file.close();
+    root_dir.access(io, assets_path, .{}) catch {
+        const assets_file = root_dir.createFile(io, assets_path, .{}) catch @panic("failed to create assets.h");
+        defer assets_file.close(io);
 
-        assets_file.writeAll(
+        var assets_buf: [64 * 1024]u8 = undefined;
+        var assets_writer = assets_file.writer(io, &assets_buf);
+        const aw = &assets_writer.interface;
+
+        aw.writeAll(
             \\#ifndef _ASSETS_
             \\#define _ASSETS_
             \\
@@ -151,27 +158,23 @@ pub fn build(b: *std.Build) void {
         };
 
         for (asset_files) |asset| {
-            const data = std.fs.cwd().readFileAlloc(std.heap.page_allocator, asset.path, 1024 * 1024) catch @panic("failed to read asset");
+            const data = root_dir.readFileAlloc(io, asset.path, std.heap.page_allocator, .limited(1024 * 1024)) catch @panic("failed to read asset");
             defer std.heap.page_allocator.free(data);
 
-            var buf: [128]u8 = undefined;
-            var len = std.fmt.bufPrint(&buf, "static const unsigned char {s}[] = {{\n", .{asset.name}) catch @panic("fmt");
-            assets_file.writeAll(len[0..len.len]) catch @panic("write");
+            aw.print("static const unsigned char {s}[] = {{\n", .{asset.name}) catch @panic("write");
 
             for (data, 0..) |byte, i| {
-                var byte_buf: [8]u8 = undefined;
-                const byte_str = std.fmt.bufPrint(&byte_buf, "0x{x:0>2},", .{byte}) catch @panic("fmt");
-                assets_file.writeAll(byte_str) catch @panic("write");
-                if ((i + 1) % 16 == 0) assets_file.writeAll("\n") catch @panic("write");
+                aw.print("0x{x:0>2},", .{byte}) catch @panic("write");
+                if ((i + 1) % 16 == 0) aw.writeAll("\n") catch @panic("write");
             }
 
-            assets_file.writeAll("\n};\n") catch @panic("write");
+            aw.writeAll("\n};\n") catch @panic("write");
 
-            len = std.fmt.bufPrint(&buf, "static const int {s}_size = {d};\n\n", .{ asset.name, data.len }) catch @panic("fmt");
-            assets_file.writeAll(len[0..len.len]) catch @panic("write");
+            aw.print("static const int {s}_size = {d};\n\n", .{ asset.name, data.len }) catch @panic("write");
         }
 
-        assets_file.writeAll("#endif\n") catch @panic("write");
+        aw.writeAll("#endif\n") catch @panic("write");
+        aw.flush() catch @panic("flush failed");
     };
 
     ///////////////////////////////////////////////////////////////////////////
@@ -279,12 +282,12 @@ pub fn build(b: *std.Build) void {
     ///////////////////////////////////////////////////////////////////////////
     // Generate compile_commands.json for LSP (clangd / Zed)
     const compile_commands_path = "compile_commands.json";
-    var compile_commands = std.fs.cwd().createFile(compile_commands_path, .{}) catch @panic("failed to create compile_commands.json");
-    defer compile_commands.close();
+    const compile_commands = root_dir.createFile(io, compile_commands_path, .{}) catch @panic("failed to create compile_commands.json");
+    defer compile_commands.close(io);
 
     var cc_buf: [64 * 1024]u8 = undefined;
-    var cc_stream = std.io.fixedBufferStream(&cc_buf);
-    const cc_writer = cc_stream.writer();
+    var cc_file_writer = compile_commands.writer(io, &cc_buf);
+    const cc_writer = &cc_file_writer.interface;
 
     cc_writer.writeAll("[\n") catch @panic("write failed");
 
@@ -292,10 +295,10 @@ pub fn build(b: *std.Build) void {
     const dirs_to_scan = [_][]const u8{ "deps/staunch/src", "src" };
     var first = true;
     for (dirs_to_scan) |dir_path| {
-        var dir = b.build_root.handle.openDir(dir_path, .{ .iterate = true }) catch continue;
-        defer dir.close();
+        const dir = root_dir.openDir(io, dir_path, .{ .iterate = true }) catch continue;
+        defer dir.close(io);
         var iter = dir.iterate();
-        while (iter.next() catch null) |entry| {
+        while (iter.next(io) catch null) |entry| {
             if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".c")) continue;
             if (!first) cc_writer.writeAll(",\n") catch @panic("write failed");
             first = false;
@@ -321,7 +324,7 @@ pub fn build(b: *std.Build) void {
     }
 
     cc_writer.writeAll("\n]\n") catch @panic("write failed");
-    compile_commands.writeAll(cc_stream.getWritten()) catch @panic("write failed");
+    cc_writer.flush() catch @panic("flush failed");
 }
 
 fn addCSourceDir(
@@ -340,14 +343,15 @@ fn addCSourceDirExclude(
     c_flags: []const []const u8,
     exclude: []const []const u8,
 ) void {
-    var dir = b.build_root.handle.openDir(dir_path, .{ .iterate = true }) catch {
+    const io = b.graph.io;
+    const dir = b.build_root.handle.openDir(io, dir_path, .{ .iterate = true }) catch {
         std.debug.print("failed to open directory: {s}\n", .{dir_path});
         @panic("build failed");
     };
-    defer dir.close();
+    defer dir.close(io);
 
     var iter = dir.iterate();
-    while (iter.next() catch null) |entry| {
+    while (iter.next(io) catch null) |entry| {
         if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".c")) {
             var skip = false;
             for (exclude) |ex| {
